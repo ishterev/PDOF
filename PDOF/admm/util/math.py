@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri May 01 20:00:46 2015
-
 @author: shterev
 """
 
@@ -12,7 +11,7 @@ from multiprocessing import cpu_count
 
 NUM_PROCS = cpu_count() - 1 or 1
 
-MAXITER  = int(1e4);   # Maximal amount of iterations
+MAXITER  = 1000; #int(1e4);   # Maximal amount of iterations
 ABSTOL   = 1e-4;
 RELTOL   = 1e-2;# 1e-2;1e-3;1e-4;
 
@@ -22,7 +21,7 @@ mu=1e-1;
 
 def prox(f, x, rho, v):           
     f += (rho/2)*sum_squares(x - v)
-    Problem(Minimize(f)).solve()
+    Problem(Minimize(f)).solve(solver=CVXOPT)
     return np.array(x.value)
 
 

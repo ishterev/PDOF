@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri May 01 20:01:32 2015
-
 @author: shterev
 """
 
@@ -9,7 +8,8 @@ from cvxpy import *
 import numpy as np
 from numpy import linalg as LA
 import itertools as it
-import operator as op
+from opt_problem import *
+
 
 from util import math
 from functools import partial
@@ -18,22 +18,29 @@ from multiprocessing import Pool, freeze_support
 
 import time
 
-def local_update(rho, x_var, x_mean, f_xi_ui):
+def local_update(rho, x_mean, p_xi_ui):
     
-    f, xi, ui = f_xi_ui
-    ui = ui + x_mean    
-    xi = math.prox(f, x_var, rho, xi - x_mean - ui)
+    prob, xi, ui = p_xi_ui
+    ui = ui + x_mean       
+    prob.setParameters(rho, xi - x_mean - ui)
+    xi = prob.solve()
+    #xi = math.prox(f, x_var, rho, xi - x_mean - ui)
     #xi_pri = (LA.norm(xi)**2) # for eps primal |Ax|2
     #ui_dual = (LA.norm(rho * ui)**2) # for eps dual |A.T y|2
         
     return (xi, ui)
     
 
-# x is a cvxpy Variable and f_x is a list of functions on x
-def main(x, f_x):
+
+def main(prob_list):
     
-    N = x.size[0]
-    n = len(f_x)
+    if(len(prob_list) == 0):
+        return  
+        
+    p = prob_list[0]
+    
+    N = p.getN()
+    n = len(prob_list)
     
     # Setup problem
     sqrt_N = np.sqrt(N)
@@ -54,11 +61,21 @@ def main(x, f_x):
     # ADMM loop.
     for i in range(math.MAXITER):#50
    
-        update = partial(local_update, rho, x, x_mean)       
-        xi_ui = pool.map(update, it.izip(f_x, xi, ui))
-       
-        xi = np.array(map(op.itemgetter(0), xi_ui))
-        ui = np.array(map(op.itemgetter(1), xi_ui))
+        update = partial(local_update, rho, x_mean)       
+        xi_ui = pool.map(update, it.izip(plist, xi, ui))
+        
+        #for j in range(n):
+        #    xi[j] = xi_ui[j][0]
+        #    ui[j] = xi_ui[j][1]
+          
+        idx = 0
+        while(len(xi_ui) > 0):
+            xi[idx], ui[idx] = xi_ui.pop(0)
+            idx += 1
+            
+            
+        #xi = np.array(map(op.itemgetter(0), xi_ui))
+        #ui = np.array(map(op.itemgetter(1), xi_ui))
        
         x_mean = np.divide(np.sum(xi, axis=0), N)
         z_old = z
@@ -128,13 +145,19 @@ if __name__ == "__main__":
    A = np.random.randn(m, N)
    b = np.random.randn(m, 1)
 
-   x = Variable(N)
+   x1 = Variable(N)
+   func1 = sum_squares(A*x1 - b);
+   p1 = OptimizationProblem(func1, [-100000 <= x1, x1 <= 100000])
+   
+   
    gamma = 0.1
+   x2 = Variable(N)
+   func2 = gamma*norm(x2, 1)
+   p2 = OptimizationProblem(func2, [-100000 <= x2, x2 <= 100000])
 
-   funcs = [sum_squares(A*x - b),
-         gamma*norm(x, 1)]
+   plist = [p1, p2]
          
-   x_z_y = main(x, funcs)
+   x_z_y = main(plist)
   
    # Compare ADMM with standard solver.
    
