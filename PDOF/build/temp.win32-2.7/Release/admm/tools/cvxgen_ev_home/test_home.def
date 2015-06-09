@@ -1,0 +1,3 @@
+LIBRARY test_home.pyd
+EXPORTS
+inittest_home

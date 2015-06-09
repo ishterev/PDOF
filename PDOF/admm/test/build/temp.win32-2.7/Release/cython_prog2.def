@@ -1,0 +1,3 @@
+LIBRARY cython_prog2.pyd
+EXPORTS
+initcython_prog2

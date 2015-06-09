@@ -1,0 +1,3 @@
+LIBRARY solver_home.pyd
+EXPORTS
+initsolver_home

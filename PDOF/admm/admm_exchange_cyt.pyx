@@ -3,11 +3,16 @@
 Created on Fri May 01 20:01:32 2015
 @author: shterev
 """
+cimport cython
 
 from cvxpy import *
 
 import numpy as np
+cimport numpy as np
 from numpy import linalg as LA
+
+DTYPE = np.float64
+#ctypedef np.float64_t DTYPE_t
 
 import itertools as it
 from opt_problem import *
@@ -19,6 +24,15 @@ from functools import partial
 from multiprocessing import Pool, freeze_support
 
 import time
+
+cdef unsigned int NUM_PROCS = cpu_count() - 1 or 1
+
+cdef unsigned int MAXITER  = 1000; #int(1e4);   # Maximal amount of iterations
+cdef DTYPE ABSTOL   = 1e-4;
+cdef DTYPE RELTOL   = 1e-2;# 1e-2;1e-3;1e-4;
+
+cdef DTYPE lamb=1e-1;
+cdef DTYPE mu=1e-1;
 
 def local_update(rho, x_mean, p_xi_ui):
     
@@ -33,7 +47,8 @@ def local_update(rho, x_mean, p_xi_ui):
     return (xi, ui)
     
 
-
+@cython.boundscheck(False) # turn of bounds-checking for entire function
+@cython.wraparound(False)
 def main(prob_list):
     
     if(len(prob_list) == 0):
@@ -41,26 +56,25 @@ def main(prob_list):
         
     p = prob_list[0]
     
-    N = p.getN()
-    n = len(prob_list)
+    cdef Py_ssize_t N = p.getN()# unsigned int
+    cdef Py_ssize_t n = len(prob_list) #unsigned int
     
     # Setup problem
-    sqrt_N = np.sqrt(N)
-    eps_pri = sqrt_N  # Primal stoping criteria  Convergence
-    eps_dual = sqrt_N  # Dual stoping criteria
-    rho = math.rho_init      # Augmented penalty parameter ADMM Step size
-    v=0               # parameter for changing rho
-    lamb = math.lamb
-    mu = math.mu
-    
-    xi = np.zeros((n, N, 1))
-    ui = np.zeros((n, N, 1))
-    z = np.zeros((n, N, 1))
-    x_mean = np.zeros((N, 1))
+    cdef DTYPE sqrt_N = np.sqrt(N)
+    #cdef DTYPE eps_pri = sqrt_N  # Primal stoping criteria  Convergence
+    #cdef DTYPE eps_dual = sqrt_N  # Dual stoping criteria
+    cdef DTYPE rho = 0.5      # Augmented penalty parameter ADMM Step size
+    cdef DTYPE v=0               # parameter for changing rho
+       
+    cdef np.ndarray[DTYPE, ndim=3, mode="c"] xi = np.zeros((n, N, 1), dtype=DTYPE)
+    cdef np.ndarray[DTYPE, ndim=3, mode="c"] ui = np.zeros((n, N, 1), dtype=DTYPE)
+    cdef np.ndarray[DTYPE, ndim=3, mode="c"] z = np.zeros((n, N, 1), dtype=DTYPE)
+    cdef np.ndarray[DTYPE, ndim=2, mode="c"] x_mean = np.zeros((N, 1), dtype=DTYPE)
     
     pool = Pool(math.NUM_PROCS)
-    t_start = time.time()
+    cdef unsigned long t_start = time.time()
     # ADMM loop.
+    cdef unsigned int i
     for i in range(math.MAXITER):#50
    
         update = partial(local_update, rho, x_mean)       
@@ -70,7 +84,7 @@ def main(prob_list):
         #    xi[j] = xi_ui[j][0]
         #    ui[j] = xi_ui[j][1]
           
-        idx = 0
+        cdef Py_ssize_t idx = 0 # unsigned int idx
         while(len(xi_ui) > 0):
             xi[idx], ui[idx] = xi_ui.pop(0)
             idx += 1
@@ -80,14 +94,14 @@ def main(prob_list):
         #ui = np.array(map(op.itemgetter(1), xi_ui))
        
         x_mean = np.divide(np.sum(xi, axis=0), N)
-        z_old = z
+        cdef np.ndarray[DTYPE, ndim=3] z_old = z
         z = xi - x_mean
        
-        r_norm = sqrt_N * LA.norm(x_mean)
-        s_norm = sqrt_N * rho * LA.norm(z - z_old)
+        cdef DTYPE r_norm = sqrt_N * LA.norm(x_mean)
+        cdef DTYPE s_norm = sqrt_N * rho * LA.norm(z - z_old)
        
-        eps_pri = sqrt_N * math.ABSTOL + math.RELTOL * max(LA.norm(xi), LA.norm(-1 * z))
-        eps_dual = sqrt_N * math.ABSTOL + math.RELTOL * LA.norm(rho * ui)    
+        cdef DTYPE eps_pri = sqrt_N * math.ABSTOL + math.RELTOL * max(LA.norm(xi), LA.norm(-1 * z))
+        cdef DTYPE eps_dual = sqrt_N * math.ABSTOL + math.RELTOL * LA.norm(rho * ui)    
        
         # stopping criteria
         if (r_norm <= eps_pri and s_norm <= eps_dual):
@@ -100,8 +114,8 @@ def main(prob_list):
         # update rho 
         # According to Boyd et. al
           
-        rho_old = rho
-        v_old = v
+        cdef DTYPE rho_old = rho
+        cdef DTYPE v_old = v
         v = rho * r_norm/s_norm - 1   
         rho = rho* np.exp(lamb * v + mu * (v - v_old))
        
