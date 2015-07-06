@@ -5,6 +5,7 @@ Created on Fri May 01 20:01:32 2015
 """
 
 from cvxpy import *
+import cvxpy
 
 import numpy as np
 from numpy import linalg as LA
@@ -140,6 +141,8 @@ if __name__ == "__main__":
 
    freeze_support()
    
+   #print installed_solvers()
+   
    # Problem data.
    m = 4 # 100
    N =  3 # 75
@@ -149,7 +152,7 @@ if __name__ == "__main__":
 
    x1 = Variable(N)
    func1 = sum_squares(A*x1 - b);
-   p1 = OptimizationProblem(func1, [-100000 <= x1, x1 <= 100000])
+   p1 = OptimizationProblemCvxpy(func1, [-100000 <= x1, x1 <= 100000])
    
    
    gamma = 0.1

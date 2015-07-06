@@ -50,6 +50,20 @@ ext_modules = [
         #libraries = ["solver"],
         #library_dirs = [ev_home]
         ), 
+        
+    Extension("admm.tools.cvxgen_EV_home.solve_home", ["admm/tools/cvxgen_EV_home/solve_home.pyx"]
+    ,
+        #include_dirs = [ev_home],
+        #libraries = ["solver"],
+        #library_dirs = [ev_home]
+        ), 
+        
+    Extension("admm.EV_loader", ["admm/EV_loader.pyx"]
+    ,
+        #include_dirs = [ev_home],
+        #libraries = ["solver"],
+        #library_dirs = [ev_home]
+        ), 
      #Everything but primes.pyx is included here.
      #Extension("*", [ev_home + "*.pyx"],
         #include_dirs = [...],
