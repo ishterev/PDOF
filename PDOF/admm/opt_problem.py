@@ -168,12 +168,14 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
            
       def solve(self):
           
+          #print self.rho, self.gamma, self.alpha, self.K
+          
           dd = (self.rho / (2*self.gamma * self.alpha + self.rho)) * self.K;   
                    
           # Populate objective
           obj = QuadExpr() # Cost= 1/2 * norm(C*xtemp -dd)^2;
           for i in xrange(OptimizationProblem.T):
-              tmp = self.vars[i] - dd[i][0]
+              tmp = self.vars[i] - dd[i] #dd[i][0]
               obj += tmp * tmp
             
           obj = 1/2 * (obj)

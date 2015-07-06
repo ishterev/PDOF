@@ -14,7 +14,7 @@ from mpi4py import MPI
 from opt_problem import *
 
 
-MAXITER  = 10000#int(1e4);   # Maximal amount of iterations
+MAXITER  = 1000# int(1e4);   # Maximal amount of iterations
 ABSTOL   = 1e-4
 RELTOL   = 1e-2# 1e-2;1e-3;1e-4;
 
@@ -29,7 +29,7 @@ chargeStrategy = 'home'
 V2G = True
 gamma = 0
 
-N = 2#int(sys.argv[1]) + 1   # Number of agents N=N_EV+1
+N = int(sys.argv[1]) + 1   # Number of agents N=N_EV+1
 deltaT=15*60;                   # Time slot duration [sec]
 T= 24*3600/deltaT ;             # Number of time slots
 
@@ -75,7 +75,7 @@ for i in xrange(MAXITER):#50
         send[0] = np.dot(ri, ri.T) 
         send[1] = np.dot(xi, xi.T)
         send[2] = np.dot(ui, ui.T)
-        send[2] *= np.power(rho, 2)
+        #send[2] *= np.power(rho, 2)
 
         comm.Allreduce(send, recv, op=MPI.SUM)
         
@@ -84,7 +84,7 @@ for i in xrange(MAXITER):#50
 
         r_norm  = np.sqrt(recv[0])  # sqrt(sum ||r_i||_2^2) 
         nxstack = np.sqrt(recv[1])  # sqrt(sum ||x_i||_2^2) 
-        nystack = np.sqrt(recv[2])  # sqrt(sum ||y_i||_2^2) 
+        nystack = rho * np.sqrt(recv[2])  # sqrt(sum ||y_i||_2^2) 
         
         zi_old = zi
         zi = xi - x_mean
@@ -106,13 +106,30 @@ for i in xrange(MAXITER):#50
         # update rho 
         # According to Boyd et. al
           
-        rho_old = rho
-        v_old = v
-        v = rho * r_norm/s_norm - 1   
-        rho = rho* np.exp(lamb * v + mu * (v - v_old))
+        if(rho < 10000):
+          
+          if s_norm != 0 :
+             rho_old = rho
+             v_old = v
+             v = rho * r_norm/s_norm - 1   
+             rho = rho* np.exp(lamb * v + mu * (v - v_old))
        
-        # rescale u
-        ui = (rho_old/rho) * ui
+             # rescale u
+             ui = (rho_old/rho) * ui
+           
+          else:
+             # alternatively
+             t_incr = 2
+             t_decr = 2
+             m = 10
+       
+             rho_old = rho
+             if(r_norm > m * s_norm):
+                rho = t_incr * rho        
+             elif(s_norm > m * r_norm):
+                rho = rho / t_decr
+        
+             ui = (rho_old/rho) * ui
         
         ri = x_mean
 
