@@ -37,10 +37,10 @@ class OptProblem_Aggregator(OptimizationProblem):
           for key,val in data.items() :
                
               if(key == 'D'):       
-                 self.D = data[key][()]
+                 self.D = data[key][()].T
           
               if(key == 'price'):
-                 self.price = data['price'][()]
+                 self.price = data['price'][()].T
           
           data.close()
           
@@ -55,7 +55,8 @@ class OptProblem_Aggregator(OptimizationProblem):
           
           x = self.rho/(self.rho-2)* self.K - 2/(self.rho-2) * self.D
 
-          cost = LA.norm(self.D-x)  
+          cost = LA.norm(self.D-x)
+          cost *= cost
           
           return (x,cost)
           
@@ -87,22 +88,27 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
           for key,val in data.items() :
        
               if(key == 'A'):       
-                 self.A = data[key][()]
+                 self.A = data[key][()].T
+                 A = self.A
           
               if(key == 'R'):
                  self.R = data[key][()][0][0]
                  
               if(key == 'd'):
-                 self.d = data[key][()]
+                 self.d = data[key][()].T
+                 d = self.d
                  
               if(key == 'B'): # and self.discharge
-                 self.B = data[key][()]                 
+                 self.B = data[key][()].T 
+                 B = self.B
                  
               if(key == 'S_max'): # and self.discharge
-                 self.Smax = data[key][()]
+                 self.Smax = data[key][()].T
+                 Smax = self.Smax
                  
               if(key == 'S_min'): # and self.discharge
-                 self.Smin = data[key][()]
+                 self.Smin = data[key][()].T
+                 Smin = self.Smin
           
           data.close()
 
@@ -111,8 +117,8 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
           self.model.params.OutputFlag = 0 # verbose = 1
         
           # Add variables to model
-          for j in xrange(OptimizationProblem.T):
-              self.model.addVar(lb= (self.d[j][0] * self.xmin) , ub = (self.d[j][0] * self.xmax))
+          for i in xrange(OptimizationProblem.T):
+              self.model.addVar(lb= (self.d[0][i] * self.xmin) , ub = (self.d[0][i] * self.xmax))
           self.model.update()
           self.vars = self.model.getVars()
         
@@ -120,8 +126,8 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
           # Aeq * x = beq 
           expr = LinExpr()
           for i in xrange(OptimizationProblem.T):   
-              if self.A[i][0] != 0:
-                 expr += (self.A[i][0])*(self.vars[i]) 
+              if self.A[0][i] != 0:
+                 expr += (self.A[0][i])*(self.vars[i]) 
                
           self.model.addConstr(expr,  GRB.EQUAL, self.R)
                 
@@ -133,18 +139,21 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
                   expr += self.B[i]*self.vars[i]                
                   self.model.addConstr(expr,  GRB.GREATER_EQUAL, self.Smin[i][0] - 1e-4)
                   self.model.addConstr(expr,  GRB.LESS_EQUAL, self.Smax[i][0] + 1e-4)'''
+                  
+          #print self.B.shape, self.B.shape[0], self.B.shape[1]
               
           # Smin <= B * x <= Smax
           if self.discharge:  # yes V2G 
-             expr = LinExpr()
-             for i in xrange(self.B.shape[0]):#rows 96
+             
+             for i in xrange(self.B.shape[0]):#rows 61
+                 expr = LinExpr()
                  
-                 for j in range(self.B.shape[1]):#cols 61
+                 for j in range(self.B.shape[1]):#cols 96
                      if self.B[i][j] != 0:
                         expr += self.B[i][j]*self.vars[j]
                         
-                        self.model.addConstr(expr,  GRB.GREATER_EQUAL, self.Smin[0][j] - 1e-4)
-                        self.model.addConstr(expr,  GRB.LESS_EQUAL, self.Smax[0][j] + 1e-4)        
+                 self.model.addConstr(expr,  GRB.GREATER_EQUAL, self.Smin[i][0] - 1e-4)
+                 self.model.addConstr(expr,  GRB.LESS_EQUAL, self.Smax[i][0] + 1e-4)        
           
           
           
@@ -175,7 +184,7 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
           # Populate objective
           obj = QuadExpr() # Cost= 1/2 * norm(C*xtemp -dd)^2;
           for i in xrange(OptimizationProblem.T):
-              tmp = self.vars[i] - dd[i] #dd[i][0]
+              tmp = self.vars[i] - dd[i][0] #dd[i][0]
               obj += tmp * tmp
             
           obj = 1/2 * (obj)
@@ -197,10 +206,10 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
                return np.zeros((OptimizationProblem.T, 1))'''
                
               
-          x = np.zeros(OptimizationProblem.T) #np.zeros((OptimizationProblem.T, 1))
+          x = np.zeros((OptimizationProblem.T, 1)) #np.zeros((OptimizationProblem.T, 1))
           if self.model.status == GRB.status.OPTIMAL:
              for i in xrange(OptimizationProblem.T):
-                 x[i] = self.vars[i].x #x[i][0] = self.vars[i].x
+                 x[i][0] = self.vars[i].x #x[i][0] = self.vars[i].x
               
 
           return (x , self.model.getObjective().getValue())       
@@ -235,31 +244,18 @@ if __name__ == "__main__":
    #reload(sys)  
    #sys.setdefaultencoding('utf8')
    
-   aggr = loadAggr()
-   #D,price = np.empty
-   
-   for key,val in aggr.items() :
-       
-       if(key == 'D'):       
-          D = aggr[key][()]
-          
-       if(key == 'price'):
-          price = aggr['price'][()]
-          
-   aggr.close()
-   
    a = OptProblem_Aggregator()
    
-   a.setParameters(0.5, np.zeros((96, 1)))
+   a.setParameters(0.5, np.zeros((96,1)))
    x, c = a.solve()
    
-   print x
+   #print x
    
    
    #D = aggr['D'][()]
    #price = aggr['price'][()]  # Energy price
  
-   delta=  np.mean(price)/(np.mean(D) * (3600*1000)  *15*60 ) ;      # Empirical [price/demand^2]
+   delta=  np.mean(a.price)/(np.mean(a.D) * (3600*1000)  *15*60 ) ;      # Empirical [price/demand^2]
    
    op = OptProblem_ValleyFilling_Home(1, True)
    
