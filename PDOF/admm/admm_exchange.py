@@ -11,7 +11,7 @@ import numpy as np
 from numpy import linalg as LA
 
 import itertools as it
-from opt_problem import *
+from opt_problem_cvxpy_old import *
 
 
 from util import math
@@ -158,7 +158,7 @@ if __name__ == "__main__":
    gamma = 0.1
    x2 = Variable(N)
    func2 = gamma*norm(x2, 1)
-   p2 = OptimizationProblem(func2, [-100000 <= x2, x2 <= 100000])
+   p2 = OptimizationProblemCvxpy(func2, [-100000 <= x2, x2 <= 100000])
 
    plist = [p1, p2]
          
