@@ -89,26 +89,26 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
        
               if(key == 'A'):       
                  self.A = data[key][()].T
-                 A = self.A
+                 #A = self.A # for debug
           
               if(key == 'R'):
                  self.R = data[key][()][0][0]
                  
               if(key == 'd'):
                  self.d = data[key][()].T
-                 d = self.d
+                 #d = self.d
                  
               if(key == 'B'): # and self.discharge
                  self.B = data[key][()].T 
-                 B = self.B
+                 #B = self.B
                  
               if(key == 'S_max'): # and self.discharge
                  self.Smax = data[key][()].T
-                 Smax = self.Smax
+                 #Smax = self.Smax
                  
               if(key == 'S_min'): # and self.discharge
                  self.Smin = data[key][()].T
-                 Smin = self.Smin
+                # Smin = self.Smin
           
           data.close()
 
@@ -130,17 +130,6 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
                  expr += (self.A[0][i])*(self.vars[i]) 
                
           self.model.addConstr(expr,  GRB.EQUAL, self.R)
-                
-                
-          '''if self.discharge:  # yes V2G 
-              # Smin <= B * x <= Smax
-              for i in xrange(OptimizationProblem.T):
-                  expr = LinExpr()
-                  expr += self.B[i]*self.vars[i]                
-                  self.model.addConstr(expr,  GRB.GREATER_EQUAL, self.Smin[i][0] - 1e-4)
-                  self.model.addConstr(expr,  GRB.LESS_EQUAL, self.Smax[i][0] + 1e-4)'''
-                  
-          #print self.B.shape, self.B.shape[0], self.B.shape[1]
               
           # Smin <= B * x <= Smax
           if self.discharge:  # yes V2G 

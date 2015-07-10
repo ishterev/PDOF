@@ -90,7 +90,7 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
           for key,val in data.items() :
        
               if(key == 'A'):       
-                 self.A = data[key][()].T # w/o .T because in CVXPY A = A.T (n,1) = (1,n)
+                 self.A = data[key][()].T 
                  A = self.A
           
               if(key == 'R'):
@@ -98,7 +98,7 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
                  R = self.R
                  
               if(key == 'd'):
-                 self.d = data[key][()] # w/o .T because in CVXPY A = A.T (n,1) = (1,n)
+                 self.d = data[key][()] 
                  d = self.d
                  
               if(key == 'B'): # and self.discharge
