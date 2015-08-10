@@ -228,8 +228,7 @@ else:
 # gatherv
 comm.Gather(xi, x , root = 0)
 comm.Gather(ui, u , root = 0)
-comm.Gather(zi, z , root = 0)
-        
+comm.Gather(zi, z , root = 0)       
 '''
 
 if rank == 0:
