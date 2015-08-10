@@ -91,8 +91,8 @@ send = np.zeros(4)
 recv = np.zeros(4)
 
 
-    # ADMM loop.
-for i in xrange(MAXITER):#50
+# ADMM loop.
+for k in xrange(MAXITER):#50
 
         send = np.zeros(4)
         xsum = np.zeros((T,1))
@@ -159,7 +159,7 @@ for i in xrange(MAXITER):#50
         if(rank == 0 and DISP):
            cost = 0
            print ("\n%3d\t%10.3f\t%10.3f\t%10.3f\t%10.3f\t%10.3f\t%10.3f" %
-                  (i, rho, r_norm, eps_pri, s_norm, eps_dual,cost))
+                  (k, rho, r_norm, eps_pri, s_norm, eps_dual,cost))
        
         # stopping criteria
         if (r_norm <= eps_pri and s_norm <= eps_dual):
@@ -182,7 +182,7 @@ for i in xrange(MAXITER):#50
              rho = rho* np.exp(lamb * v + mu * (v - v_old))
              
              if(rho == 2):
-                rho = 2.1 #dirty hack, because of aggregator function
+                rho += ABSTOL #dirty hack, because of the aggregator function
                 #continue
        
              # rescale u
@@ -201,7 +201,7 @@ for i in xrange(MAXITER):#50
                 rho = rho / t_decr
                 
              if(rho == 2):
-                rho = 2.1 # dity hack, because of aggregator function
+                rho += ABSTOL # dirty hack, because of the aggregator function
         
              ui = (rho_old/rho) * ui
         
@@ -212,10 +212,14 @@ ui = rho * ui
 
 
 comm.Barrier()
+
+'''
+# alternatively
 if rank == 0:
         x = np.zeros((T,N))         # Agents profile 
         u = np.zeros((T,N))         # Help variable
         z = np.zeros((T,N))         # Scaled price 
+        
 else:
         x = None
         u = None
@@ -225,10 +229,39 @@ else:
 comm.Gather(xi, x , root = 0)
 comm.Gather(ui, u , root = 0)
 comm.Gather(zi, z , root = 0)
+        
+'''
 
+if rank == 0:
+        x = np.zeros((T,N))         # Agents profile 
+        u = np.zeros((T,N))         # Help variable
+        z = np.zeros((T,N))         # Scaled price 
+        
+        xlist = []
+        ulist = []
+        zlist = []
+        
+else:
+        x = None
+        u = None
+        z = None
+        
+        xlist = None
+        ulist = None
+        zlist = None
+    
+xlist = comm.gather(xi, root = 0)
+ulist = comm.gather(ui, root = 0)
+zlist = comm.gather(zi, root = 0)
 
 # root process prints results
-if comm.rank == 0:
-        print "x", x
-        print "u", u
-        print "z", z
+if rank == 0:
+
+   x = np.concatenate(xlist, axis=0).reshape((T,N))#np.array(xlist).reshape((T,N))
+   u = np.concatenate(ulist, axis=0).reshape((T,N))#np.array(ulist).reshape((T,N))
+   z = np.concatenate(zlist, axis=0).reshape((T,N))#np.array(zlist).reshape((T,N))
+   
+   print "x", x
+   print "u", u
+   print "z", z
+        
