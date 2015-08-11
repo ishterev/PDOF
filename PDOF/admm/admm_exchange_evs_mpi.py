@@ -3,7 +3,7 @@
 Created on Fri May 01 20:01:32 2015
 @author: shterev
 """
-# mpiexec -n 4 python admm_exchange_mpi.py 100
+# mpiexec -n 4 python admm_exchange_evs_mpi.py 100
 
 import numpy as np
 from scipy.linalg.blas import ddot, dnrm2
@@ -13,7 +13,7 @@ import scipy.io as sio
 import sys
 from mpi4py import MPI
 
-from opt_problem import *
+from opt_problem_evs import *
 
 import time
 import psutil
