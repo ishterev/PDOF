@@ -98,9 +98,9 @@ eps_dual = np.sqrt(N)  # Dual stoping criteria
 rho=0.5            # Augmented penalty parameter ADMM Step size
 v=0               # parameter for changing rho
 
-#if(rank == 0 and DISP):
-#           print ("%3s\t%10s\t%10s\t%10s\t%10s\t%10s\t%10\n" %
-#                  ('iter', 'step_size', 'r_norm', 'eps_pri', 's_norm','eps_dual', 'objective'))
+if(rank == 0 and DISP):
+           print ("%3s\t%10s\t%10s\t%10s\t%10s\t%10s\t%10s\n" %
+                    ('iter', 'step_size', 'r_norm', 'eps_pri', 's_norm','eps_dual', 'objective'))
 
 # save history
 if (rank == 0 and HISTORY):
@@ -259,7 +259,7 @@ for k in xrange(MAXITER):#50
         if (r_norm <= eps_pri and s_norm <= eps_dual):
           #if (r_LA.norm < eps_pri):   
             if (rank == 0):
-                print "Finished at step ", i
+                print "Finished at step ", k
             break
        
         #if (rank == 0): print "ADMM iteration ", i
