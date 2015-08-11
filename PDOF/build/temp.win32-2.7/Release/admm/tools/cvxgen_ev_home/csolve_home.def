@@ -1,3 +1,0 @@
-LIBRARY csolve_home.pyd
-EXPORTS
-initcsolve_home

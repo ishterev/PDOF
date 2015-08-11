@@ -1,3 +1,0 @@
-LIBRARY params.pyd
-EXPORTS
-initparams

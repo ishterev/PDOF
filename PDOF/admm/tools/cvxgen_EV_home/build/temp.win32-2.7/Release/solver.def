@@ -1,3 +1,0 @@
-LIBRARY solver.pyd
-EXPORTS
-initsolver

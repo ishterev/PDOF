@@ -1,3 +1,0 @@
-LIBRARY test.pyd
-EXPORTS
-inittest
