@@ -30,7 +30,7 @@ class OptimizationProblem:
         
         
 
-class OptProblem_Aggregator(OptimizationProblem):
+class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
         
       def __init__(self): 
           
@@ -203,7 +203,7 @@ if __name__ == "__main__":
           
    aggr.close()
    
-   a = OptProblem_Aggregator()
+   a = OptProblem_Aggregator_ValleyFilling()
    
    a.setParameters(0.5, np.zeros((96, 1)))
    x, c = a.solve()
