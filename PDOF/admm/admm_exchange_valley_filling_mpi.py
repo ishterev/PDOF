@@ -157,7 +157,7 @@ if (rank == 0 and HISTORY):
     history["meminfo"] = np.zeros((MAXITER,), dtype='float64') # memory in use for this programm
     history["cost"] = np.zeros((MAXITER,), dtype='float64') # + delta*costEVs; real cost of the EVs 
     history["costEVs"] = np.zeros((MAXITER,), dtype='float64') # sum of EVs costs
-    history["costAgr"] = np.zeros((MAXITER,), dtype='float64')# aggregator's cost
+    history["costAggr"] = np.zeros((MAXITER,), dtype='float64')# aggregator's cost
     history["r_norm"] = np.zeros((MAXITER,), dtype='float64') # primal residual
     history["s_norm"] = np.zeros((MAXITER,), dtype='float64') # dual residual
     history["eps_pri"] = np.zeros((MAXITER,), dtype='float64') # primal feasability tolerance
@@ -181,19 +181,19 @@ if(rank == 0):
    #Cost of iteration
    cost = 0 # + delta*costEVs; real cost of the EVs  
    costEVs = 0 # sum of EVs costs
-   costAgr = 0 # aggregator's cost
+   costAggr = 0 # aggregator's cost
    xAggr = np.zeros((T,1)) # aggregated EV profile for all time slots
    
    tic = time.time() # start timing
 
 
 # ADMM loop.
-for k in xrange(MAXITER):#50
+for k in xrange(MAXITER):
 
         send = np.zeros(5) # reinitialize
         xsum = np.zeros((T,1)) # sum of all n xi in the process
 
-        for j in range(n):
+        for j in xrange(n):
             
             # ADMM iteration step (simplified for optimal exchage)
             zi_old = zi[j]
@@ -218,7 +218,7 @@ for k in xrange(MAXITER):#50
             # read in aggregator
             if rank == 0 and j == 0:               
                 xAggr = xi[j]
-                costAgr = ci
+                costAggr = ci
             # or accumulate EV costs 
             else:
                send[4] += ci #costEVs
@@ -260,7 +260,7 @@ for k in xrange(MAXITER):#50
 
         # Temporary results for the convergence test
         nxstack = np.sqrt(recv[0])  # sqrt(sum ||x_i||_2^2) 
-        nystack = rho * np.sqrt(recv[1])  # sqrt(sum ||y_i||_2^2) 
+        nystack = rho * np.sqrt(recv[1])  # sqrt(sum ||y_i||_2^2) ; rescaling y := rho * u
         nzstack = np.sqrt(recv[2]) # dnrm2(-1 * zi)
         nzdiffstack = np.sqrt(recv[3])
         
@@ -296,7 +296,7 @@ for k in xrange(MAXITER):#50
            
            history['cost'][k]= cost 
            history['costEVs'][k]= costEVs 
-           history['costAgr'][k]=costAgr
+           history['costAggr'][k]=costAggr
            history['r_norm'][k]=r_norm
            history['s_norm'][k]=s_norm
            history['eps_pri'][k]=eps_pri
@@ -362,9 +362,9 @@ comm.Barrier()
 
 
 if rank == 0:
-        x = np.zeros((T,N))         # Agents profile 
-        y = np.zeros((T,N))         # Price vector
-        z = np.zeros((T,N))         # Help variable 
+        x = np.empty((T,N))         # Agents profile 
+        y = np.empty((T,N))         # Price vector
+        z = np.empty((T,N))         # Help variable 
         
         xlist = []
         ylist = []
@@ -381,20 +381,25 @@ else:
 
 # collect data from all tasks and deliver it to the root task
 xlist = comm.gather(xi, root = 0)# a list of comm.size numpy arrays
+xi = None
+
 ylist = comm.gather(ui, root = 0)# y := u (y = rho * u)
+ui = None
+
 zlist = comm.gather(zi, root = 0)
+zi = None
 
 # root process prints results
 if rank == 0:
 
    # create numpy arrays
-   x = np.concatenate(xlist, axis=0).reshape((T,N))
+   x = np.concatenate(xlist, axis=0)#.reshape((T,N))
    xlist = None
    
-   y = np.concatenate(ylist, axis=0).reshape((T,N))
+   y = np.concatenate(ylist, axis=0)#.reshape((T,N))
    ylist = None
    
-   z = np.concatenate(zlist, axis=0).reshape((T,N))
+   z = np.concatenate(zlist, axis=0)#.reshape((T,N))
    zlist = None
   
    if DISP:
