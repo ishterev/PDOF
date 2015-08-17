@@ -149,7 +149,7 @@ if (rank == 0 and HISTORY):
        historyFileName +='_V2G';
 
     historyFileName +='_gamma_' + str(gamma) ###
-    historyFileName +='.mat'
+    historyFileName +='_mpi.mat'
     
     # a dictionary containing snapshots of every iteration
     history = {}    
