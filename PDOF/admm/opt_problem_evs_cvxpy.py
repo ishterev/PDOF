@@ -98,7 +98,7 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
           
           x = self.rho/(self.rho-2)* self.K - 2/(self.rho-2) * self.D
 
-          cost = ddot(self.D-x) #LA.norm(self.D-x)^2
+          cost = ddot(self.D-x,self.D-x) #LA.norm(self.D-x)^2
           
           return (x,cost)
           
@@ -196,7 +196,7 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
         self.problem.solve(solver=GUROBI) #solver=CVXOPT
 
         xRslt = np.array(self.x.value)
-        costRslt=self.gamma*self.delta*self.alpha*ddot(xRslt) #self.problem.value    
+        costRslt=self.gamma*self.delta*self.alpha*ddot(xRslt, xRslt) #self.problem.value    
         
         return (xRslt, costRslt) 
           
