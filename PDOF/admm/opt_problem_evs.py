@@ -7,6 +7,7 @@ Created on Sat May 09 00:06:45 2015
 #from cvxpy import *
 import numpy as np
 from numpy import linalg as LA
+from scipy.linalg.blas import ddot, dnrm2
 from gurobipy import *
 
 import h5py
@@ -25,6 +26,45 @@ class OptimizationProblem:
         
     def getT(self):
         return OptimizationProblem.T
+        
+        
+class OptProblem_Aggregator_PriceBased(OptimizationProblem):
+        
+      def __init__(self): 
+          
+          data = loadAggr()
+   
+          for key,val in data.items() :
+          
+              if(key == 'price'):
+                 self.price = data['price'][()].T
+          
+          data.close()
+          
+          
+      def setParameters(self, rho, K):
+                  
+          self.rho = rho;         #augement cost parameter
+          self.K = K # xold - xmean - u  Normalization parameter
+          
+          
+      def solve(self):
+          
+          x= self.K + self.p/self.rho          
+ 
+          # box constraints
+          indx = where(x<-self.re)
+          if indx:
+              x[indx]=-self.re[indx]
+             
+          indx = where(x>-self.xamin)
+          if indx:
+              x[indx]=-self.xamin[indx]
+ 
+
+          cost = -np.dot(self.p, x) # -p'*x;
+          
+          return (x,cost)
         
         
 
@@ -55,9 +95,8 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
           
           x = self.rho/(self.rho-2)* self.K - 2/(self.rho-2) * self.D
 
-          cost = LA.norm(self.D-x)
-          cost *= cost
-          
+          cost = ddot(self.D-x) #LA.norm(self.D-x)^2
+                    
           return (x,cost)
           
           
@@ -199,9 +238,11 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
           if self.model.status == GRB.status.OPTIMAL:
              for i in xrange(OptimizationProblem.T):
                  x[i][0] = self.vars[i].x #x[i][0] = self.vars[i].x
+                 
+          cost=self.gamma*self.delta*self.alpha*ddot(x);
               
 
-          return (x , self.model.getObjective().getValue())       
+          return (x , cost) #self.model.getObjective().getValue()      
            
           #print self.model.getAttr("x", self.model.getVars())
                

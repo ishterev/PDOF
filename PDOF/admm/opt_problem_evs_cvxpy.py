@@ -7,6 +7,7 @@ Created on Sat May 09 00:06:45 2015
 #from cvxpy import *
 import numpy as np
 from numpy import linalg as LA
+from scipy.linalg.blas import ddot, dnrm2
 from cvxpy import *
 
 from gurobipy import *
@@ -27,6 +28,46 @@ class OptimizationProblem:
         
     def getT(self):
         return OptimizationProblem.T
+        
+
+
+class OptProblem_Aggregator_PriceBased(OptimizationProblem):
+        
+      def __init__(self): 
+          
+          data = loadAggr()
+   
+          for key,val in data.items() :
+          
+              if(key == 'price'):
+                 self.price = data['price'][()].T
+          
+          data.close()
+          
+          
+      def setParameters(self, rho, K):
+                  
+          self.rho = rho;         #augement cost parameter
+          self.K = K # xold - xmean - u  Normalization parameter
+          
+          
+      def solve(self):
+          
+          x= self.K + self.p/self.rho          
+ 
+          # box constraints
+          indx = where(x<-self.re)
+          if indx:
+              x[indx]=-self.re[indx]
+             
+          indx = where(x>-self.xamin)
+          if indx:
+              x[indx]=-self.xamin[indx]
+ 
+
+          cost = -np.dot(self.p, x) # -p'*x;
+          
+          return (x,cost)
         
         
 
@@ -57,8 +98,7 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
           
           x = self.rho/(self.rho-2)* self.K - 2/(self.rho-2) * self.D
 
-          cost = LA.norm(self.D-x) 
-          cost *=cost
+          cost = ddot(self.D-x) #LA.norm(self.D-x)^2
           
           return (x,cost)
           
@@ -91,27 +131,21 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
        
               if(key == 'A'):       
                  self.A = data[key][()].T 
-                 A = self.A
           
               if(key == 'R'):
                  self.R = data[key][()][0][0]
-                 R = self.R
                  
               if(key == 'd'):
                  self.d = data[key][()] 
-                 d = self.d
                  
               if(key == 'B'): # and self.discharge
                  self.B = data[key][()].T   
-                 B = self.B
                  
               if(key == 'S_max'): # and self.discharge
                  self.Smax = data[key][()].T
-                 Smax = self.Smax
                  
               if(key == 'S_min'): # and self.discharge
                  self.Smin = data[key][()].T
-                 Smin = self.Smin
           
           data.close()          
           
@@ -160,7 +194,11 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
       def solve(self):
           
         self.problem.solve(solver=GUROBI) #solver=CVXOPT
-        return (np.array(self.x.value), self.problem.value) 
+
+        xRslt = np.array(self.x.value)
+        costRslt=self.gamma*self.delta*self.alpha*ddot(xRslt) #self.problem.value    
+        
+        return (xRslt, costRslt) 
           
           
                 
