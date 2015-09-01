@@ -68,6 +68,100 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
           cost = -np.dot(self.p, x) # -p'*x;
           
           return (x,cost)
+          
+          
+          
+class OptProblem_PriceBased_Home(OptimizationProblem):
+    
+      gamma = 0 # Trade-off parameter
+      alpha = (0.05 * 15 * 60)/3600 #Battery depresiation cost [EUR/kWh] and transformed to [EUR/kW]
+     
+      def __init__(self, idx, discharge = False): 
+          
+          self.idx = idx
+          self.discharge = discharge
+          
+          self.xmax = 4   # Max charging power for greedy need to add some 1e-3 or something for it to be feasible
+
+          if self.discharge: 
+              self.xmin = -4 # yes
+          else:
+              self.xmin = 0  # no
+                
+          data = loadEV('home', self.idx)              
+              
+          for key,val in data.items() :
+       
+              if(key == 'A'):       
+                 self.A = data[key][()].T 
+          
+              if(key == 'R'):
+                 self.R = data[key][()][0][0]
+                 
+              if(key == 'd'):
+                 self.d = data[key][()] 
+                 
+              if(key == 'B'): # and self.discharge
+                 self.B = data[key][()].T   
+                 
+              if(key == 'S_max'): # and self.discharge
+                 self.Smax = data[key][()].T
+                 
+              if(key == 'S_min'): # and self.discharge
+                 self.Smin = data[key][()].T
+          
+          data.close()          
+          
+          self.x = Variable(OptimizationProblem.T, 1)
+          
+          self.lb = self.d * self.xmin <= self.x
+          self.ub = self.x <= self.d * self.xmax 
+         
+          # Aeq * x = beq 
+          self.Aeq = self.A * self.x == self.R         
+          
+           # Smin <= B * x <= Smax
+          if self.discharge:  # yes V2G 
+             self.Aineq1 = self.Smin - 1e-4 <= self.B*self.x
+             self.Aineq2 = self.B*self.x <= self.Smax + 1e-4
+             
+          self.K = Parameter(OptimizationProblem.T, value = np.zeros((OptimizationProblem.T, 1)))
+          self.rho = Parameter(sign="positive", value = 0.5)
+         
+          self.dd = (self.rho / (2*self.gamma * self.alpha + self.rho)) * self.K
+         
+          #C = np.eye(OptimizationProblem.T)
+
+          self.Cost = 1/2 * sum_squares(self.x - self.dd)# 1/2 * (norm(self.x - self.dd) ** 2) C*self.x - self.dd
+          self.Constraints=[self.lb, self.ub, self.Aeq]
+         
+          if self.discharge:
+             self.Constraints.append(self.Aineq1)
+             self.Constraints.append(self.Aineq2)
+         
+          self.problem = Problem(Minimize(self.Cost), self.Constraints)   
+         
+                      
+      def setParameters(self, rho, K):
+                  
+           
+          #self.idx = params.idx;         # EV index
+          #selfchargeStrategy=params.chargeStrategy   # Charging strategy
+           
+          self.rho.value = rho;         #augement cost parameter
+          self.K.value = K # xold - xmean - u  Normalization parameter
+           
+          #self.OptimizationProblem.T=length(params.xold);                         # Number of time slots
+          #self.discharge=params.discharge ; # discharge allowed
+           
+      def solve(self):
+          
+        self.problem.solve(solver=GUROBI) #solver=CVXOPT
+
+        xRslt = np.array(self.x.value)
+        costRslt=self.gamma*self.alpha*ddot(xRslt, xRslt) #self.problem.value    
+        
+        return (xRslt, costRslt) 
         
         
 
