@@ -60,11 +60,11 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
           x= self.K + self.p/self.rho          
  
           # box constraints
-          indx = where(x<-self.re)
+          indx = np.where(x<-self.re)
           if indx:
               x[indx]=-self.re[indx]
              
-          indx = where(x>-self.xamin)
+          indx = np.where(x>-self.xamin)
           if indx:
               x[indx]=-self.xamin[indx]
  

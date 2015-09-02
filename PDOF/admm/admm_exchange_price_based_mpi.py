@@ -6,7 +6,7 @@ Created on Fri May 01 20:01:32 2015
 ###################################################################################################
 # To run execute the follwoing command. The console should point to this file's working directory
 #
-# mpiexec -n 4 python admm_exchange_valley_filling_mpi.py 100
+# mpiexec -n 4 python admm_exchange_price_based_mpi.py 100
 #
 # where 100 is an example for the number of EVs
 ###################################################################################################
