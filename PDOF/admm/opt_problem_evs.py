@@ -29,6 +29,10 @@ class OptimizationProblem:
         
         
 class OptProblem_Aggregator_PriceBased(OptimizationProblem):
+          
+      p = None                # regularization
+      re = None 
+      xamin = 0
         
       def __init__(self): 
           
@@ -37,7 +41,7 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
           for key,val in data.items() :
           
               if(key == 'price'):
-                 self.price = data['price'][()].T
+                 self.price = data['price'][()]#.T
           
           data.close()
           
@@ -53,16 +57,16 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
           x= self.K + self.p/self.rho          
  
           # box constraints
-          indx = where(x<-self.re)
+          indx = np.where(x<-self.re)
           if indx:
               x[indx]=-self.re[indx]
              
-          indx = where(x>-self.xamin)
+          indx = np.where(x>-self.xamin)
           if indx:
               x[indx]=-self.xamin[indx]
  
 
-          cost = -np.dot(self.p, x) # -p'*x;
+          cost = -np.dot(self.p.T, x) # -p'*x;
           
           return (x,cost)
           
@@ -422,7 +426,15 @@ if __name__ == "__main__":
    #reload(sys)  
    #sys.setdefaultencoding('utf8')
    
-   a = OptProblem_Aggregator_ValleyFilling()
+   a = OptProblem_Aggregator_PriceBased()
+   
+   price= a.price # Base demand profile 
+   p=np.tile(price,(4,1))
+   p=p / (3600*1000) * 15*60  # scaling of price in EUR/kW
+   a.p=p
+   
+   a.re=  100e3 * np.zeros((96,1))  # maximal aviliable load 1GW 
+   a.xamin=-100e3 * np.zeros((96,1))
    
    a.setParameters(0.5, np.zeros((96,1)))
    x, c = a.solve()
@@ -433,13 +445,13 @@ if __name__ == "__main__":
    #D = aggr['D'][()]
    #price = aggr['price'][()]  # Energy price
  
-   delta=  np.mean(a.price)/(np.mean(a.D) * (3600*1000)  *15*60 ) ;      # Empirical [price/demand^2]
+   #delta=  np.mean(a.price)/(np.mean(a.D) * (3600*1000)  *15*60 ) ;      # Empirical [price/demand^2]
    
-   op = OptProblem_ValleyFilling_Home(1, True)
+   op = OptProblem_PriceBased_Home(1, True)
    
-   OptProblem_ValleyFilling_Home.delta = delta;
-   OptProblem_ValleyFilling_Home.gamma = 0;
-   OptProblem_ValleyFilling_Home.alpha /= OptProblem_ValleyFilling_Home.delta;
+   #OptProblem_ValleyFilling_Home.delta = delta;
+   OptProblem_PriceBased_Home.gamma = 0;
+   #OptProblem_ValleyFilling_Home.alpha /= OptProblem_ValleyFilling_Home.delta;
    
    op.setParameters(0.5, np.zeros((96, 1)))
    x, c = op.solve()

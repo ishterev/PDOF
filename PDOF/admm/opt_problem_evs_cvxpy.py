@@ -32,6 +32,10 @@ class OptimizationProblem:
 
 
 class OptProblem_Aggregator_PriceBased(OptimizationProblem):
+    
+      p = None                # regularization
+      re = None 
+      xamin = 0
         
       def __init__(self): 
           
@@ -40,7 +44,7 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
           for key,val in data.items() :
           
               if(key == 'price'):
-                 self.price = data['price'][()].T
+                 self.price = data['price'][()]#.T
           
           data.close()
           
@@ -65,7 +69,7 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
               x[indx]=-self.xamin[indx]
  
 
-          cost = -np.dot(self.p, x) # -p'*x;
+          cost = -np.dot(self.p.T, x) # -p'*x;
           
           return (x,cost)
           
