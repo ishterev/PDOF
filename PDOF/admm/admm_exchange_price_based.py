@@ -116,7 +116,7 @@ if(DISP):
 if (HISTORY):
     
     # save results in this file
-    historyFileName= DATA_DIR + '/results/' + str(N_EV) + 'EVs_' +  chargeStrategy
+    historyFileName= DATA_DIR + '/results/price_based/' + str(N_EV) + 'EVs_' +  chargeStrategy
     if V2G :
        historyFileName +='_V2G';
 
