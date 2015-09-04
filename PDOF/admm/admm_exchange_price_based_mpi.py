@@ -124,12 +124,12 @@ if rank == 0:
         opt_probs[0] = problem
         
         for i in xrange(1, n):
-              problem = OptProblem_ValleyFilling_Home(i, V2G)
+              problem = OptProblem_PriceBased_Home(i, V2G)
               opt_probs[i] = problem
               
 else:
         for i in xrange(n):
-              problem = OptProblem_ValleyFilling_Home(startidx + i, V2G)
+              problem = OptProblem_PriceBased_Home(startidx + i, V2G)
               opt_probs[i] = problem
                  
 
@@ -145,29 +145,34 @@ if(rank == 0 and DISP):
                     ('iter', 'step_size', 'r_norm', 'eps_pri', 's_norm','eps_dual', 'objective'))
 
 # save history
-if (rank == 0 and HISTORY):
-    
-    # save results in this file
-    historyFileName= DATA_DIR + '/results/price_based/' + str(N_EV) + 'EVs_' +  chargeStrategy
-    if V2G :
-       historyFileName +='_V2G';
 
-    historyFileName +='_gamma_' + str(gamma) ###
-    historyFileName +='_mpi.mat'
+if (rank == 0):
+    if (HISTORY):
     
-    # a dictionary containing snapshots of every iteration
-    history = {}    
-    history["time"] = np.zeros((MAXITER,), dtype='float64') # elapsed time
-    history["meminfo"] = np.zeros((MAXITER,), dtype='float64') # memory in use for this programm
-    history["cost"] = np.zeros((MAXITER,), dtype='float64') # + delta*costEVs; real cost of the EVs 
-    history["xsum"] = np.zeros((MAXITER, T, 1), dtype='float64') # aggregated response
-    history["costEVs"] = np.zeros((MAXITER,), dtype='float64') # sum of EVs costs
-    history["costAggr"] = np.zeros((MAXITER,), dtype='float64')# aggregator's cost
-    history["r_norm"] = np.zeros((MAXITER,), dtype='float64') # primal residual
-    history["s_norm"] = np.zeros((MAXITER,), dtype='float64') # dual residual
-    history["eps_pri"] = np.zeros((MAXITER,), dtype='float64') # primal feasability tolerance
-    history["eps_dual"] = np.zeros((MAXITER,), dtype='float64') # dual feasability tolerance
-    history["rho"] = np.zeros((MAXITER,), dtype='float64') # penalty parameter
+        # save results in this file
+        historyFileName= DATA_DIR + '/results/price_based/' + str(N_EV) + 'EVs_' +  chargeStrategy
+        if V2G :
+           historyFileName +='_V2G';
+
+        historyFileName +='_gamma_' + str(gamma) ###
+        historyFileName +='_mpi.mat'
+    
+        # a dictionary containing snapshots of every iteration
+        history = {}    
+        history["time"] = np.zeros((MAXITER,), dtype='float64') # elapsed time
+        history["meminfo"] = np.zeros((MAXITER,), dtype='float64') # memory in use for this programm
+        history["cost"] = np.zeros((MAXITER,), dtype='float64') # + delta*costEVs; real cost of the EVs 
+        history["xsum"] = np.zeros((MAXITER, T, 1), dtype='float64') # aggregated response
+        history["costEVs"] = np.zeros((MAXITER,), dtype='float64') # sum of EVs costs
+        history["costAggr"] = np.zeros((MAXITER,), dtype='float64')# aggregator's cost
+        history["r_norm"] = np.zeros((MAXITER,), dtype='float64') # primal residual
+        history["s_norm"] = np.zeros((MAXITER,), dtype='float64') # dual residual
+        history["eps_pri"] = np.zeros((MAXITER,), dtype='float64') # primal feasability tolerance
+        history["eps_dual"] = np.zeros((MAXITER,), dtype='float64') # dual feasability tolerance
+        history["rho"] = np.zeros((MAXITER,), dtype='float64') # penalty parameter
+    else:
+        history = {} 
+        history["cost"] = np.zeros((MAXITER,), dtype='float64') # + delta*costEVs; real cost of the EVs 
     
     
 # the x, u and z chunks for this process    
@@ -193,6 +198,7 @@ if(rank == 0):
 
 
 # ADMM loop.
+done = np.zeros(1)
 for k in xrange(MAXITER):
 
         send = np.zeros(5) # reinitialize
@@ -289,28 +295,33 @@ for k in xrange(MAXITER):
                   (k, rho, r_norm, eps_pri, s_norm, eps_dual,cost))
                   
         #  save history
-        if (rank == 0 and HISTORY):
+        if (rank == 0):            
+           if (HISTORY):
        
-           # the elapsed time
-           history['time'][k]= time.time() - tic #toc
+               # the elapsed time
+               history['time'][k]= time.time() - tic #toc
            
-           #performance memory
-           VmPeakIteration = psutil.virtual_memory()[3]
-           meminfo=VmPeakIteration-VmPeakStart;
-           history['meminfo'][k]=meminfo;
+               #performance memory
+               VmPeakIteration = psutil.virtual_memory()[3]
+               meminfo=VmPeakIteration-VmPeakStart;
+               history['meminfo'][k]=meminfo;
            
-           history['cost'][k]= cost 
-           history['xsum'][k]= x_sum
-           history['costEVs'][k]= costEVs 
-           history['costAggr'][k]=costAggr
-           history['r_norm'][k]=r_norm
-           history['s_norm'][k]=s_norm
-           history['eps_pri'][k]=eps_pri
-           history['eps_dual'][k]=eps_dual
-           history['rho'][k]=rho
+               history['cost'][k]= cost 
+               history['xsum'][k]= x_sum
+               history['costEVs'][k]= costEVs 
+               history['costAggr'][k]=costAggr
+               history['r_norm'][k]=r_norm
+               history['s_norm'][k]=s_norm
+               history['eps_pri'][k]=eps_pri
+               history['eps_dual'][k]=eps_dual
+               history['rho'][k]=rho
+               
+           else:
+               history['cost'][k]= cost 
+          
            
-           
-        if (k >= 5):    
+          
+        if (rank == 0 and k >= 5):    
           cost_variance = np.var(history['cost'][k-5:k])
         else:     
           cost_variance = 1
@@ -319,6 +330,14 @@ for k in xrange(MAXITER):
         if (r_norm <= eps_pri and s_norm <= eps_dual)  or (cost_variance <= 1e-9):  
             if (rank == 0):
                 print "Finished ADMM at step " + str(k) + " after " + str(time.time() - tic) + " seconds" 
+                done[0] = 1                
+                
+            # a broadcast and not a direct break because the computation of cost_variance 
+            # is only in the root process
+            comm.Bcast(done, root = 0)
+            #comm.Barrier()                
+                
+        if(done[0] > 0):
             break
 
         # update rho 
@@ -412,4 +431,3 @@ if rank == 0:
       history["y"] = y
       history["z"] = z
       sio.savemat(historyFileName, history)
-        
