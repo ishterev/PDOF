@@ -54,7 +54,7 @@ chargeStrategy = 'home'
 V2G = True
 gamma = 0 #trade off parameter
 
-N_EV = 4 # Number of EVs
+N_EV = 0 # Number of EVs
 ID = '0' # number of test run
 if len(sys.argv) > 1:
     N_EV = int(sys.argv[1])

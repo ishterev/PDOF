@@ -4,7 +4,6 @@ Created on Sat May 09 00:06:45 2015
 
 @author: shterev
 """
-#from cvxpy import *
 import numpy as np
 from numpy import linalg as LA
 from scipy.linalg.blas import ddot, dnrm2
@@ -144,7 +143,7 @@ class OptProblem_PriceBased_Home(OptimizationProblem):
              for i in xrange(self.B.shape[0]):#rows 61
                  expr = LinExpr()
                  
-                 for j in range(self.B.shape[1]):#cols 96
+                 for j in xrange(self.B.shape[1]):#cols 96
                      if self.B[i][j] != 0:
                         expr += self.B[i][j]*self.vars[j]
                         
@@ -327,7 +326,7 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
              for i in xrange(self.B.shape[0]):#rows 61
                  expr = LinExpr()
                  
-                 for j in range(self.B.shape[1]):#cols 96
+                 for j in xrange(self.B.shape[1]):#cols 96
                      if self.B[i][j] != 0:
                         expr += self.B[i][j]*self.vars[j]
                         
