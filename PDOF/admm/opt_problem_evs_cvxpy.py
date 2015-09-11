@@ -10,8 +10,6 @@ from numpy import linalg as LA
 from scipy.linalg.blas import ddot, dnrm2
 from cvxpy import *
 
-from gurobipy import *
-
 import h5py
 
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))

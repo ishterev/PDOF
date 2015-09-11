@@ -13,9 +13,10 @@ import h5py
 
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))
 
+T = 96
+
 class OptimizationProblem:
     
-    T = 96
         
     def solve(self):
         pass
@@ -23,8 +24,6 @@ class OptimizationProblem:
     def setParameters(self, params):
         pass
         
-    def getT(self):
-        return OptimizationProblem.T
         
         
 class OptProblem_Aggregator_PriceBased(OptimizationProblem):
@@ -123,7 +122,7 @@ class OptProblem_PriceBased_Home(OptimizationProblem):
           self.model.params.OutputFlag = 0 # verbose = 1
         
           # Add variables to model
-          for i in xrange(OptimizationProblem.T):
+          for i in xrange(T):
               self.model.addVar(lb= (self.d[0][i] * self.xmin) , ub = (self.d[0][i] * self.xmax))
           self.model.update()
           self.vars = self.model.getVars()
@@ -131,7 +130,7 @@ class OptProblem_PriceBased_Home(OptimizationProblem):
                 
           # Aeq * x = beq 
           expr = LinExpr()
-          for i in xrange(OptimizationProblem.T):   
+          for i in xrange(T):   
               if self.A[0][i] != 0:
                  expr += (self.A[0][i])*(self.vars[i]) 
                
@@ -167,7 +166,7 @@ class OptProblem_PriceBased_Home(OptimizationProblem):
           self.rho = rho;         #augement cost parameter
           self.K = K # xold - xmean - u  Normalization parameter
            
-          #self.OptimizationProblem.T=length(params.xold);                         # Number of time slots
+          #self.T=length(params.xold);                         # Number of time slots
           #self.discharge=params.discharge ; # discharge allowed
            
       def solve(self):
@@ -178,7 +177,7 @@ class OptProblem_PriceBased_Home(OptimizationProblem):
                    
           # Populate objective
           obj = QuadExpr() # Cost= 1/2 * norm(C*xtemp -dd)^2;
-          for i in xrange(OptimizationProblem.T):
+          for i in xrange(T):
               tmp = self.vars[i] - dd[i][0] #dd[i][0]
               obj += tmp * tmp
             
@@ -198,12 +197,12 @@ class OptProblem_PriceBased_Home(OptimizationProblem):
                x = self.model.getAttr('x', vars)              
                return np.asarray(x, order = 'F')
           else:
-               return np.zeros((OptimizationProblem.T, 1))'''
+               return np.zeros((T, 1))'''
                
               
-          x = np.zeros((OptimizationProblem.T, 1)) #np.zeros((OptimizationProblem.T, 1))
+          x = np.zeros((T, 1)) #np.zeros((T, 1))
           if self.model.status == GRB.status.OPTIMAL:
-             for i in xrange(OptimizationProblem.T):
+             for i in xrange(T):
                  x[i][0] = self.vars[i].x #x[i][0] = self.vars[i].x
                  
           cost=self.gamma*self.alpha*ddot(x,x);
@@ -306,7 +305,7 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
           self.model.params.OutputFlag = 0 # verbose = 1
         
           # Add variables to model
-          for i in xrange(OptimizationProblem.T):
+          for i in xrange(T):
               self.model.addVar(lb= (self.d[0][i] * self.xmin) , ub = (self.d[0][i] * self.xmax))
           self.model.update()
           self.vars = self.model.getVars()
@@ -314,7 +313,7 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
                 
           # Aeq * x = beq 
           expr = LinExpr()
-          for i in xrange(OptimizationProblem.T):   
+          for i in xrange(T):   
               if self.A[0][i] != 0:
                  expr += (self.A[0][i])*(self.vars[i]) 
                
@@ -350,7 +349,7 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
           self.rho = rho;         #augement cost parameter
           self.K = K # xold - xmean - u  Normalization parameter
            
-          #self.OptimizationProblem.T=length(params.xold);                         # Number of time slots
+          #self.T=length(params.xold);                         # Number of time slots
           #self.discharge=params.discharge ; # discharge allowed
            
       def solve(self):
@@ -361,7 +360,7 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
                    
           # Populate objective
           obj = QuadExpr() # Cost= 1/2 * norm(C*xtemp -dd)^2;
-          for i in xrange(OptimizationProblem.T):
+          for i in xrange(T):
               tmp = self.vars[i] - dd[i][0] #dd[i][0]
               obj += tmp * tmp
             
@@ -381,12 +380,12 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
                x = self.model.getAttr('x', vars)              
                return np.asarray(x, order = 'F')
           else:
-               return np.zeros((OptimizationProblem.T, 1))'''
+               return np.zeros((T, 1))'''
                
               
-          x = np.zeros((OptimizationProblem.T, 1)) #np.zeros((OptimizationProblem.T, 1))
+          x = np.zeros((T, 1)) #np.zeros((T, 1))
           if self.model.status == GRB.status.OPTIMAL:
-             for i in xrange(OptimizationProblem.T):
+             for i in xrange(T):
                  x[i][0] = self.vars[i].x #x[i][0] = self.vars[i].x
                  
           cost=self.gamma*self.delta*self.alpha*ddot(x,x);
