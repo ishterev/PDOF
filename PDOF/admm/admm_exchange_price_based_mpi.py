@@ -38,7 +38,11 @@ import scipy.io as sio
 import sys
 from mpi4py import MPI
 
-from opt_problem_evs import *
+CVXPY = False
+if(CVXPY):
+   from opt_problem_evs_cvxpy import *
+else:
+   from opt_problem_evs_gurobi import *
 
 import time
 import psutil

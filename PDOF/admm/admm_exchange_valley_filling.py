@@ -31,7 +31,11 @@ from scipy.linalg.blas import ddot, dnrm2
 #from numpy import linalg as LA
 import scipy.io as sio
 
-from opt_problem_evs import *
+CVXPY = False
+if(CVXPY):
+   from opt_problem_evs_cvxpy import *
+else:
+   from opt_problem_evs_gurobi import *
 
 import time
 import psutil
