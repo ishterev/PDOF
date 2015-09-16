@@ -6,8 +6,6 @@ Created on Fri Sep 11 16:03:36 2015
 """
 
 import numpy as np
-from numpy import linalg as LA
-from scipy.linalg.blas import ddot, dnrm2
 from cvxpy import *
 from gurobipy import *
 
@@ -41,22 +39,18 @@ class OptimizationProblemCvxpy(OptimizationProblem):
     def setObjective(self, f, sense = 'min'):
         
         x = self.getX()
-        v = Parameter(x.size, value = np.zeros(x.size))
+        K = Parameter(x.size, value = np.zeros(x.size))
         rho = Parameter(sign="positive", value = 0.5)
         
-        self.v = v
+        self.K = K
         self.rho = rho
         # add proximal term to objective
         if(sense == 'min'):
-           self.objective = Minimize(f + (rho/2)*sum_squares(x - v))
+           self.objective = Minimize(f + (rho/2)*sum_squares(x - K))
         elif(sense == 'max'):
-            self.objective = Maximize(f + (rho/2)*sum_squares(x - v))
+            self.objective = Maximize(f + (rho/2)*sum_squares(x - K))
         else:
             raise ValueError('Objective has no specified sense')
-            
-    def setV(self, v):  
-        self.v.value = v
-        return self.v
 
         
     def setParameters(self, rho, K):       
@@ -73,10 +67,14 @@ class OptimizationProblemCvxpy(OptimizationProblem):
         self.model = Problem(self.objective, self.constraints)
         
     
-    def solve(self):
+    def optimize(self):
         # assert self.model
         self.model.solve(solver=GUROBI) #solver=CVXOPT
         return np.array(self.x.value) 
+        
+    # on default same as optimize, could contain pre and postprocessing in overriding subclasses    
+    def solve(self):
+        return self.optimize()
         
         
         
@@ -86,10 +84,11 @@ class OptimizationProblemGurobi(OptimizationProblem):
     def setX(self, shape): 
     
         #assert self.model
+        #assert len(shape) == 1 or len(shape) == 2
          
         # Add variables to model
         for i in xrange(shape[0]):# shape is either of the form (n,1) or (n)
-            self.model.addVar()
+            self.model.addVar(lb = -GRB.INFINITY) # N.B.!!! otherwise lb is set on default to 0
         self.model.update()
         self.x = self.model.getVars()         
 
@@ -157,7 +156,7 @@ class OptimizationProblemGurobi(OptimizationProblem):
                  if B[0][i] != 0:
                      expr += B[0][i] * x[i]
        
-             self.model.addConstr(expr,  op, b[0][0])
+             self.model.addQConstr(expr,  op, b[0][0])
              self.model.update()          
                     
          
@@ -242,19 +241,23 @@ class OptimizationProblemGurobi(OptimizationProblem):
             A = f[0]
             B = f[1]
              
-            assert A.shape == (n,n) 
-            assert B.shape == (1,n) 
+            if(A is not None): 
+               assert A.shape == (n,n) 
+            if(B is not None): 
+               assert B.shape == (1,n) 
                        
             fexpr = QuadExpr()
-            for i in xrange(n):
+            if(A is not None): 
+               for i in xrange(n):
                 
-                for j in xrange(n): 
-                    if A[i][j] != 0:                    
-                       fexpr += x[i] * A[i][j] * x[i]
+                   for j in xrange(n): 
+                       if A[i][j] != 0:                    
+                          fexpr += x[i] * A[i][j] * x[i]
                           
-            for i in xrange(n):
-                if B[0][i] != 0:
-                   fexpr += B[0][i] * x[i]
+            if(B is not None):              
+               for i in xrange(n):
+                   if B[0][i] != 0:
+                      fexpr += B[0][i] * x[i]
                      
          
         ###########################################################################
@@ -264,13 +267,15 @@ class OptimizationProblemGurobi(OptimizationProblem):
         ###########################################################################   
         if (len(f) == 1):
              
-            A = f[0]             
-            assert A.shape == (1,n)             
+            A = f[0]
+            if(A is not None):              
+               assert A.shape == (1,n)             
                        
-            fexpr = LinExpr()            
-            for i in xrange(n):
-                 if A[0][i] != 0:
-                     fexpr += A[0][i] * x[i]
+            fexpr = LinExpr() 
+            if(A is not None): 
+               for i in xrange(n):
+                   if A[0][i] != 0:
+                      fexpr += A[0][i] * x[i]
                      
                      
         ########################################################
@@ -286,32 +291,28 @@ class OptimizationProblemGurobi(OptimizationProblem):
         else:
             raise ValueError('Objective has no specified sense')  
         
-        v = self.getV()
+        K = self.K
         # (n) -> (n,1)
-        if(len(v.shape) == 1):# should not happen, (n) numpy arrays are always read in as (n,1)
-           v.reshape((v.shape[0], 1))             
-        assert v.shape == (n,1) 
-           
-        rho = self.rho
+        if(len(K.shape) == 1):# should not happen, (n) numpy arrays are always read in as (n,1)
+           K.reshape((K.shape[0], 1))             
+        assert K.shape == (n,1) 
         
         obj = QuadExpr()
         for i in xrange(n):
-            tmp = x[i] - v[i][0] 
+            tmp = x[i] - K[i][0] 
             obj += tmp * tmp
+            
+        obj *= self.rho
+        # rho * 1/2 * obj (two times *) is syntactically correct but not semantically 
+        # and delivers wrong results
+        obj *= 1/2 
         
         # Minimize(f + (rho/2)*sum_squares(x - v))
-        obj =  1/2 * (obj) # fexpr + rho * 1/2 * (obj)        
+        obj +=  fexpr     # 1/2 * (obj)    
         
         self.model.setObjective(obj)
         self.model.update()
         
-        
-    def setV(self, v):  
-        self.v = v
-        return self.v
-        
-    def getV(self):  
-        return self.v
         
     def setParameters(self, rho, K):       
         # commented out for tweaking
@@ -330,11 +331,10 @@ class OptimizationProblemGurobi(OptimizationProblem):
         #self.model = Problem(self.objective, self.constraints)
         
     # Optimizes the concrete problem
-    def solve(self):
+    def optimize(self):
         # assert self.model
         # Solve
         self.model.optimize()         
-        #print self.model.status == GRB.status.OPTIMAL 
         n = len(self.getX())  
         x = np.zeros((n, 1)) 
         if self.model.status == GRB.status.OPTIMAL:
@@ -342,6 +342,10 @@ class OptimizationProblemGurobi(OptimizationProblem):
                x[i][0] = self.getX()[i].x
                           
         return x 
+    
+    # on default same as optimize, could contain pre and postprocessing in overriding subclasses    
+    def solve(self):
+        return self.optimize()
     
     
          

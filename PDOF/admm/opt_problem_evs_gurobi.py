@@ -5,8 +5,7 @@ Created on Sat May 09 00:06:45 2015
 @author: shterev
 """
 import numpy as np
-from numpy import linalg as LA
-from scipy.linalg.blas import ddot, dnrm2
+from scipy.linalg.blas import ddot
 from gurobipy import *
 
 import h5py
@@ -15,7 +14,8 @@ from opt_problem import *
 
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))
 
-T = 96
+T = 96 #= 24*3600/15*60 # Number of time slots (/Time slot duration [sec])
+I = np.identity(T)
         
 class OptProblem_Aggregator_PriceBased(OptimizationProblem):
           
@@ -37,7 +37,7 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
           
       def setParameters(self, rho, K):
                   
-          self.rho = rho;         #augement cost parameter
+          self.rho = rho         #augement cost parameter
           self.K = K # xold - xmean - u  Normalization parameter
           
           
@@ -81,7 +81,6 @@ class OptProblem_PriceBased_Home(OptimizationProblemGurobi):
                 
           data = loadEV('home', self.idx)              
           
-          # check the arrays, because after reading in there is no difference between a and a.T
           for key,val in data.items() :
        
               if(key == 'A'):       
@@ -112,33 +111,31 @@ class OptProblem_PriceBased_Home(OptimizationProblemGurobi):
           self.setModel()
           self.setX((T,1))
           
-          self.addConstraint([np.identity(T), '>=', self.d * self.xmin]) # lb
-          self.addConstraint([np.identity(T), '<=', self.d * self.xmax]) # ub
+          self.addConstraint([I, '>=', self.d * self.xmin]) # lb
+          self.addConstraint([I, '<=', self.d * self.xmax]) # ub
           
           self.addConstraint([self.A, '==', self.R]) 
               
           # Smin <= B * x <= Smax
-          if False and self.discharge:  # yes V2G 
+          if self.discharge:  # yes V2G 
           
              self.addConstraint([self.B, '>=', self.Smin - 1e-4])
              self.addConstraint([self.B, '<=', self.Smax + 1e-4])
                            
            
       def solve(self):          
-          # rho         #augement cost parameter
-          # K = xold - xmean - u  Normalization parameter
-          self.setV((self.rho / (2*self.gamma * self.alpha + self.rho)) * self.K)
           
-          self.setObjective([np.zeros((1,T))], 'min')
+          if(self.gamma == 0):
+              obj = [None]
+          else:# f = gamma * alpha * x^2
+              obj = [self.gamma * self.alpha * I, None]
+              
+          self.setObjective(obj, 'min')
       
-          x = OptimizationProblemGurobi.solve(self)                 
-          cost=self.gamma*self.alpha*ddot(x,x)             
+          x = self.optimize()                 
+          cost = self.gamma*self.alpha*ddot(x,x)             
 
-          return (x , cost) #self.model.getObjective().getValue()      
-           
-          #print self.model.getAttr("x", self.model.getVars())
-               
-          #return np.asarray(self.model.getAttr(GRB.attr.x, self.vars), order = 'F')
+          return (x , cost)
                
         
         
@@ -162,7 +159,7 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
           
       def setParameters(self, rho, K):
                   
-          self.rho = rho;         #augement cost parameter
+          self.rho = rho  #augement cost parameter
           self.K = K # xold - xmean - u  Normalization parameter
           
           
@@ -227,8 +224,8 @@ class OptProblem_ValleyFilling_Home(OptimizationProblemGurobi):
           self.setModel()
           self.setX((T,1))
           
-          self.addConstraint([np.identity(T), '>=', self.d * self.xmin]) # lb
-          self.addConstraint([np.identity(T), '<=', self.d * self.xmax]) # ub
+          self.addConstraint([I, '>=', self.d * self.xmin]) # lb
+          self.addConstraint([I, '<=', self.d * self.xmax]) # ub
           
           self.addConstraint([self.A, '==', self.R]) 
               
@@ -241,21 +238,18 @@ class OptProblem_ValleyFilling_Home(OptimizationProblemGurobi):
            
       def solve(self):
           
-          # rho         #augement cost parameter
-          # K = xold - xmean - u  Normalization parameter
-          self.setV((self.rho / (2*self.gamma * self.alpha + self.rho)) * self.K)
-          
-          self.setObjective([np.zeros((1,T))], 'min')
-      
-          x = OptimizationProblemGurobi.solve(self)                           
-          
-          cost=self.gamma*self.delta*self.alpha*ddot(x,x);
+          if(self.gamma == 0):
+              obj = [None]
+          else:# f = gamma * alpha * x^2
+              obj = [self.gamma * self.alpha * I, None]
               
-          return (x , cost) #self.model.getObjective().getValue()      
-           
-          #print self.model.getAttr("x", self.model.getVars())
-               
-          #return np.asarray(self.model.getAttr(GRB.attr.x, self.vars), order = 'F')
+          self.setObjective(obj, 'min')
+      
+          x = self.optimize()                            
+          
+          cost = self.gamma*self.delta*self.alpha * ddot(x,x)
+              
+          return (x , cost)
                
                 
   
