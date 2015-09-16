@@ -6,27 +6,16 @@ Created on Sat May 09 00:06:45 2015
 """
 #from cvxpy import *
 import numpy as np
-from numpy import linalg as LA
-from scipy.linalg.blas import ddot, dnrm2
 from cvxpy import *
 
+import os
 import h5py
+
+from opt_problem import *
 
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))
 
-class OptimizationProblem:
-    
-    T = 96
-        
-    def solve(self):
-        pass
-        
-    def setParameters(self, params):
-        pass
-        
-    def getT(self):
-        return OptimizationProblem.T
-        
+T = 96 #= 24*3600/15*60 # Number of time slots (/Time slot duration [sec])
 
 
 class OptProblem_Aggregator_PriceBased(OptimizationProblem):
@@ -42,14 +31,14 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
           for key,val in data.items() :
           
               if(key == 'price'):
-                 self.price = data['price'][()]#.T
+                 self.price = data['price'][()]
           
           data.close()
           
           
       def setParameters(self, rho, K):
                   
-          self.rho = rho;         #augement cost parameter
+          self.rho = rho         #augement cost parameter
           self.K = K # xold - xmean - u  Normalization parameter
           
           
@@ -67,13 +56,13 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
               x[indx]=-self.xamin[indx]
  
 
-          cost = -np.dot(self.p.T, x) # -p'*x;
+          cost = -np.dot(self.p.T, x) # -p'*x
           
           return (x,cost)
           
           
           
-class OptProblem_PriceBased_Home(OptimizationProblem):
+class OptProblem_PriceBased_Home(OptimizationProblemCvxpy):
     
       gamma = 0 # Trade-off parameter
       alpha = (0.05 * 15 * 60)/3600 #Battery depresiation cost [EUR/kWh] and transformed to [EUR/kW]
@@ -114,54 +103,29 @@ class OptProblem_PriceBased_Home(OptimizationProblem):
           
           data.close()          
           
-          self.x = Variable(OptimizationProblem.T, 1)
+          self.setX(T)
           
-          self.lb = self.d * self.xmin <= self.x
-          self.ub = self.x <= self.d * self.xmax 
-         
+          self.addConstraint(self.d * self.xmin <= self.x) #lb
+          self.addConstraint(self.x <= self.d * self.xmax ) #ub
           # Aeq * x = beq 
-          self.Aeq = self.A * self.x == self.R         
+          self.addConstraint(self.A * self.x == self.R)
           
            # Smin <= B * x <= Smax
-          if self.discharge:  # yes V2G 
-             self.Aineq1 = self.Smin - 1e-4 <= self.B*self.x
-             self.Aineq2 = self.B*self.x <= self.Smax + 1e-4
+          if self.discharge:  # yes V2G           
+             self.addConstraint(self.Smin - 1e-4 <= self.B*self.x)
+             self.addConstraint(self.B*self.x <= self.Smax + 1e-4)
              
-          self.K = Parameter(OptimizationProblem.T, value = np.zeros((OptimizationProblem.T, 1)))
-          self.rho = Parameter(sign="positive", value = 0.5)
-         
-          self.dd = (self.rho / (2*self.gamma * self.alpha + self.rho)) * self.K
-         
-          #C = np.eye(OptimizationProblem.T)
-
-          self.Cost = 1/2 * sum_squares(self.x - self.dd)# 1/2 * (norm(self.x - self.dd) ** 2) C*self.x - self.dd
-          self.Constraints=[self.lb, self.ub, self.Aeq]
-         
-          if self.discharge:
-             self.Constraints.append(self.Aineq1)
-             self.Constraints.append(self.Aineq2)
-         
-          self.problem = Problem(Minimize(self.Cost), self.Constraints)   
-         
-                      
-      def setParameters(self, rho, K):
-                  
            
-          #self.idx = params.idx;         # EV index
-          #selfchargeStrategy=params.chargeStrategy   # Charging strategy
-           
-          self.rho.value = rho;         #augement cost parameter
-          self.K.value = K # xold - xmean - u  Normalization parameter
-           
-          #self.OptimizationProblem.T=length(params.xold);                         # Number of time slots
-          #self.discharge=params.discharge ; # discharge allowed
+          f = self.gamma * self.alpha * sum_squares(self.x)
+          self.setObjective(f, 'min')
+         
+          self.setModel()
+         
            
       def solve(self):
           
-        self.problem.solve(solver=GUROBI) #solver=CVXOPT
-
-        xRslt = np.array(self.x.value)
-        costRslt=self.gamma*self.alpha*ddot(xRslt, xRslt) #self.problem.value    
+        xRslt =  self.optimize()
+        costRslt=self.gamma*self.alpha*ddot(xRslt, xRslt)
         
         return (xRslt, costRslt) 
         
@@ -186,7 +150,7 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
           
       def setParameters(self, rho, K):
                   
-          self.rho = rho;         #augement cost parameter
+          self.rho = rho         #augement cost parameter
           self.K = K # xold - xmean - u  Normalization parameter
           
           
@@ -203,7 +167,7 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
         
         
         
-class OptProblem_ValleyFilling_Home(OptimizationProblem):
+class OptProblem_ValleyFilling_Home(OptimizationProblemCvxpy):
     
       delta = 1 # demand electricity price relationship  (ONLY FOR VALLEY FILLING)
       gamma = 0 # Trade-off parameter
@@ -245,53 +209,28 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem):
           
           data.close()          
           
-          self.x = Variable(OptimizationProblem.T, 1)
+          self.setX(T)
           
-          self.lb = self.d * self.xmin <= self.x
-          self.ub = self.x <= self.d * self.xmax 
-         
+          self.addConstraint(self.d * self.xmin <= self.x) #lb
+          self.addConstraint(self.x <= self.d * self.xmax ) #ub
           # Aeq * x = beq 
-          self.Aeq = self.A * self.x == self.R         
+          self.addConstraint(self.A * self.x == self.R)
           
            # Smin <= B * x <= Smax
-          if self.discharge:  # yes V2G 
-             self.Aineq1 = self.Smin - 1e-4 <= self.B*self.x
-             self.Aineq2 = self.B*self.x <= self.Smax + 1e-4
+          if self.discharge:  # yes V2G           
+             self.addConstraint(self.Smin - 1e-4 <= self.B*self.x)
+             self.addConstraint(self.B*self.x <= self.Smax + 1e-4)
              
-          self.K = Parameter(OptimizationProblem.T, value = np.zeros((OptimizationProblem.T, 1)))
-          self.rho = Parameter(sign="positive", value = 0.5)
+           
+          f = self.gamma * self.alpha * sum_squares(self.x)
+          self.setObjective(f, 'min')
          
-          self.dd = (self.rho / (2*self.gamma * self.alpha + self.rho)) * self.K
-         
-          #C = np.eye(OptimizationProblem.T)
-
-          self.Cost = 1/2 * sum_squares(self.x - self.dd)# 1/2 * (norm(self.x - self.dd) ** 2) C*self.x - self.dd
-          self.Constraints=[self.lb, self.ub, self.Aeq]
-         
-          if self.discharge:
-             self.Constraints.append(self.Aineq1)
-             self.Constraints.append(self.Aineq2)
-         
-          self.problem = Problem(Minimize(self.Cost), self.Constraints)   
+          self.setModel()  
          
                       
-      def setParameters(self, rho, K):
-                  
-           
-          #self.idx = params.idx;         # EV index
-          #selfchargeStrategy=params.chargeStrategy   # Charging strategy
-           
-          self.rho.value = rho;         #augement cost parameter
-          self.K.value = K # xold - xmean - u  Normalization parameter
-           
-          #self.OptimizationProblem.T=length(params.xold);                         # Number of time slots
-          #self.discharge=params.discharge ; # discharge allowed
-           
       def solve(self):
-          
-        self.problem.solve(solver=GUROBI) #solver=CVXOPT
 
-        xRslt = np.array(self.x.value)
+        xRslt = xRslt =  self.optimize()
         costRslt=self.gamma*self.delta*self.alpha*ddot(xRslt, xRslt) #self.problem.value    
         
         return (xRslt, costRslt) 
@@ -348,11 +287,11 @@ if __name__ == "__main__":
    #D = aggr['D'][()]
    #price = aggr['price'][()]  # Energy price
  
-   delta=  np.mean(price)/(np.mean(D) * (3600*1000)  *15*60 ) ;      # Empirical [price/demand^2]
+   delta=  np.mean(price)/(np.mean(D) * (3600*1000)  *15*60 )       # Empirical [price/demand^2]
    
-   OptProblem_ValleyFilling_Home.delta = delta;
-   OptProblem_ValleyFilling_Home.gamma = 0;
-   OptProblem_ValleyFilling_Home.alpha /= OptProblem_ValleyFilling_Home.delta;
+   OptProblem_ValleyFilling_Home.delta = delta
+   OptProblem_ValleyFilling_Home.gamma = 0
+   OptProblem_ValleyFilling_Home.alpha /= OptProblem_ValleyFilling_Home.delta
    
    op = OptProblem_ValleyFilling_Home(1, True)   
    op.setParameters(0.5, np.zeros((96, 1)))

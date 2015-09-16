@@ -55,7 +55,7 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
               x[indx]=-self.xamin[indx]
  
 
-          cost = -np.dot(self.p.T, x) # -p'*x;
+          cost = -np.dot(self.p.T, x) # -p'*x
           
           return (x,cost)
           
@@ -297,13 +297,13 @@ if __name__ == "__main__":
    #D = aggr['D'][()]
    #price = aggr['price'][()]  # Energy price
  
-   #delta=  np.mean(a.price)/(np.mean(a.D) * (3600*1000)  *15*60 ) ;      # Empirical [price/demand^2]
+   #delta=  np.mean(a.price)/(np.mean(a.D) * (3600*1000)  *15*60 )       # Empirical [price/demand^2]
    
    op = OptProblem_PriceBased_Home(1, True)
    
-   #OptProblem_ValleyFilling_Home.delta = delta;
-   OptProblem_PriceBased_Home.gamma = 0;
-   #OptProblem_ValleyFilling_Home.alpha /= OptProblem_ValleyFilling_Home.delta;
+   #OptProblem_ValleyFilling_Home.delta = delta
+   OptProblem_PriceBased_Home.gamma = 0
+   #OptProblem_ValleyFilling_Home.alpha /= OptProblem_ValleyFilling_Home.delta
    
    op.setParameters(0.5, np.zeros((96, 1)))
    x, c = op.solve()

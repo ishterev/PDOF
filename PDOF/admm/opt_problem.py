@@ -16,39 +16,41 @@ class OptimizationProblem:
     def solve(self):
         pass
         
-    def setParameters(self, params):
+    def setParameters(self, rho, K):
         pass
     
 
 class OptimizationProblemCvxpy(OptimizationProblem):
     
+    constraints = []
+    
     # objective function has only one variable that is x
-    def setX(self, shape): # (96,1)
-        self.x = Variable(shape)
+    def setX(self, shape): # (96)
+        self.x = Variable(shape) # -> (96,1)
         return self.x
         
     def getX(self):
         return self.x
         
     def addConstraint(self, constraint):
-        if self.constraints:
            self.constraints.append(constraint)
-        else:
-          self.constraints = [constraint]
           
     def setObjective(self, f, sense = 'min'):
         
         x = self.getX()
-        K = Parameter(x.size, value = np.zeros(x.size))
-        rho = Parameter(sign="positive", value = 0.5)
+        self.K = Parameter(x.size[0], value = np.zeros(x.size))
+        self.rho = Parameter(sign="positive", value = 0.5)
         
-        self.K = K
-        self.rho = rho
         # add proximal term to objective
+        prox = sum_squares(x - self.K)
+        prox *= self.rho 
+        prox *= 1/2 # N.B.!!! *= rho/2 is syntactically correct but not semantically; *= 0.5 leads to the same incorrect result
+        f += prox
+        
         if(sense == 'min'):
-           self.objective = Minimize(f + (rho/2)*sum_squares(x - K))
+           self.objective = Minimize(f)
         elif(sense == 'max'):
-            self.objective = Maximize(f + (rho/2)*sum_squares(x - K))
+            self.objective = Maximize(f)
         else:
             raise ValueError('Objective has no specified sense')
 
