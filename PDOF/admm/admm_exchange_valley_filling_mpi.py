@@ -105,10 +105,11 @@ if(rank == 0 and DISP):
            
 
 # Reading in the data
+loader = OptProblemLoaderFactory._get("valley_filling", chargeStrategy, gamma, V2G)
 if rank == 0:
     
         # Reading in the data   
-        opt_probs = OptProblemLoader_ValleyFilling(chargeStrategy, gamma, V2G).load(0, n)
+        opt_probs = loader.load(0, n)
         # w.l.o.g. and for convenience, the aggregator is the 0th element
         prob_aggr = opt_probs[0] 
         D = prob_aggr.D     
@@ -116,8 +117,7 @@ if rank == 0:
 else:
         for i in xrange(n):
             # Reading in the data 
-            opt_probs = OptProblemLoader_ValleyFilling(chargeStrategy, gamma, V2G).load(startidx + i, n)
-            
+            opt_probs = loader.load(startidx + i, n)
 
 eps_pri = np.sqrt(N)  # Primal stopping criteria for convergence
 eps_dual = np.sqrt(N)  # Dual stopping criteria

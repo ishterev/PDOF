@@ -80,7 +80,8 @@ if(DISP):
            
 
 # Reading in the data   
-opt_probs = OptProblemLoader_ValleyFilling(chargeStrategy, gamma, V2G).load(0, N)
+loader = OptProblemLoaderFactory._get("valley_filling", chargeStrategy, gamma, V2G)
+opt_probs = loader.load(0, N)
 # w.l.o.g. and for convenience, the aggregator is the 0th element
 prob_aggr = opt_probs[0] 
         

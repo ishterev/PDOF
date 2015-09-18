@@ -15,6 +15,24 @@ else:
 deltaT = 900 #=15*60  Time slot duration [sec]
 T = 96 #= 24*3600/deltaT # Number of time slots
 
+
+class  OptProblemLoaderFactory:
+    
+    @staticmethod
+    def _get(problem = "valley_filling", *args):
+        
+        if(problem == "valley_filling"):
+          
+          return OptProblemLoader_ValleyFilling(args)
+          
+        elif(problem == "price_based"):
+            
+            return OptProblemLoader_PriceBased(args)
+            
+        else:# default
+            return OptProblemLoader_ValleyFilling(args)
+           
+
 class OptProblemLoader:    
     
       def load(self, startIdx, endIdx):

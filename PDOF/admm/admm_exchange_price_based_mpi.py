@@ -102,17 +102,18 @@ if(rank == 0 and DISP):
            print 'Reading in data ...'            
 
 # Reading in the data
+loader = OptProblemLoaderFactory._get("price_based", chargeStrategy, gamma, V2G)
 if rank == 0:
        
        # Reading in the data   
-       opt_probs = OptProblemLoader_PriceBased(chargeStrategy, gamma, V2G).load(0, n)
+       opt_probs = loader.load(0, n)
        # w.l.o.g. and for convenience, the aggregator is the 0th element
        prob_aggr = opt_probs[0]
        xmax=prob_aggr.re
               
 else:
        # Reading in the data   
-       opt_probs = OptProblemLoader_PriceBased(chargeStrategy, gamma, V2G).load(startidx, n)
+       opt_probs = loader.load(startidx, n)
                  
 
 eps_pri = np.sqrt(N)  # Primal stopping criteria for convergence

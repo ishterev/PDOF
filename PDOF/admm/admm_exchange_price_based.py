@@ -77,7 +77,8 @@ if(DISP):
    print 'Reading in data ...' 
    
 # Reading in the data   
-opt_probs = OptProblemLoader_PriceBased(chargeStrategy, gamma, V2G).load(0, N)
+loader = OptProblemLoaderFactory._get("price_based", chargeStrategy, gamma, V2G)
+opt_probs = loader.load(0, N)
 # w.l.o.g. and for convenience, the aggregator is the 0th element
 prob_aggr = opt_probs[0]
 xmax=prob_aggr.re
