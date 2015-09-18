@@ -14,7 +14,8 @@ from opt_problem import *
 
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))
 
-T = 96 #= 24*3600/15*60 # Number of time slots (/Time slot duration [sec])
+deltaT = 900 #=15*60  Time slot duration [sec]
+T = 96 #= 24*3600/deltaT # Number of time slots
 I = np.identity(T)
         
 class OptProblem_Aggregator_PriceBased(OptimizationProblem):
@@ -30,9 +31,17 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
           for key,val in data.items() :
           
               if(key == 'price'):
-                 self.price = data['price'][()]#.T
+                 self.price = data['price'][()]# Base demand profile 
           
           data.close()
+          
+         
+          self.p=np.tile(self.price,(4,1))
+          self.p=self.p / (3600*1000) * deltaT  # scaling of price in EUR/kW
+
+          self.re=  100e3 *np.ones((T,1))  # maximal aviliable load 1GW 
+          self.xamin=-100e3*np.ones((T,1))
+          self.xmax=self.re
           
           
       def setParameters(self, rho, K):

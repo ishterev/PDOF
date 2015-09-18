@@ -31,11 +31,7 @@ from scipy.linalg.blas import ddot, dnrm2
 #from numpy import linalg as LA
 import scipy.io as sio
 
-CVXPY = False
-if(CVXPY):
-   from opt_problem_evs_cvxpy import *
-else:
-   from opt_problem_evs_gurobi import *
+from opt_problem_loader import *
 
 import time
 import psutil
@@ -77,34 +73,15 @@ mu=1e-1
          
 # every EV and the aggregator has its own optimization problem which is solved independantly
 # but each are subject to a common equilibrium constraint
-opt_probs = np.empty((N,), dtype=np.object)      
-
 if(DISP):
    print 'Reading in data ...' 
-           
-
-# Reading in the data
+   
+# Reading in the data   
+opt_probs = OptProblemLoader_PriceBased(chargeStrategy, gamma, V2G).load(0, N)
 # w.l.o.g. and for convenience, the aggregator is the 0th element
-problem = OptProblem_Aggregator_PriceBased()  
-
-price= problem.price # Base demand profile 
-p=np.tile(price,(4,1))
-p=p / (3600*1000) * deltaT  # scaling of price in EUR/kW
-problem.p=p
-
-problem.re=  100e3 *np.ones((T,1))  # maximal aviliable load 1GW 
-problem.xamin=-100e3*np.ones((T,1))
-xmax=problem.re
+prob_aggr = opt_probs[0]
+xmax=prob_aggr.re
         
-OptProblem_PriceBased_Home.gamma = gamma
-        
-opt_probs[0] = problem
-        
-for i in xrange(1, N):
-    problem = OptProblem_PriceBased_Home(i, V2G)
-    opt_probs[i] = problem
-              
-              
 eps_pri = np.sqrt(N)  # Primal stopping criteria for convergence
 eps_dual = np.sqrt(N)  # Dual stopping criteria
 

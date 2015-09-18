@@ -31,11 +31,7 @@ from scipy.linalg.blas import ddot, dnrm2
 #from numpy import linalg as LA
 import scipy.io as sio
 
-CVXPY = False
-if(CVXPY):
-   from opt_problem_evs_cvxpy import *
-else:
-   from opt_problem_evs_gurobi import *
+from opt_problem_loader import *
 
 import time
 import psutil
@@ -58,7 +54,7 @@ chargeStrategy = 'home'
 V2G = True
 gamma = 0 #trade off parameter
 
-N_EV = 4 # Number of EVs
+N_EV = 0 # Number of EVs
 ID = '0' # number of test run
 if len(sys.argv) > 1:
     N_EV = int(sys.argv[1])
@@ -83,23 +79,12 @@ if(DISP):
    print 'Reading in data ...' 
            
 
-# Reading in the data
+# Reading in the data   
+opt_probs = OptProblemLoader_ValleyFilling(chargeStrategy, gamma, V2G).load(0, N)
 # w.l.o.g. and for convenience, the aggregator is the 0th element
-problem = OptProblem_Aggregator_ValleyFilling()  
+prob_aggr = opt_probs[0] 
         
-D = problem.D        
-# Empirical [price/demand^2]     
-delta =  np.mean(problem.price)/(np.mean(problem.D) * (3600*1000)  *15*60 ) ;     
-OptProblem_ValleyFilling_Home.delta = delta;
-OptProblem_ValleyFilling_Home.gamma = gamma;
-OptProblem_ValleyFilling_Home.alpha /= OptProblem_ValleyFilling_Home.delta;
-        
-opt_probs[0] = problem
-        
-for i in xrange(1, N):
-    problem = OptProblem_ValleyFilling_Home(i, V2G)
-    opt_probs[i] = problem
-              
+D = prob_aggr.D     
               
 eps_pri = np.sqrt(N)  # Primal stopping criteria for convergence
 eps_dual = np.sqrt(N)  # Dual stopping criteria

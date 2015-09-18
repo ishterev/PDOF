@@ -328,7 +328,7 @@ class OptimizationProblemGurobi(OptimizationProblem):
     def setModel(self):
         # assert self.objective
         self.model = Model() 
-        self.model.params.OutputFlag = 1 # verbose = 1
+        self.model.params.OutputFlag = 0 # verbose = 1
         
         #self.model = Problem(self.objective, self.constraints)
         

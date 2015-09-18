@@ -37,12 +37,8 @@ import scipy.io as sio
 
 import sys
 from mpi4py import MPI
-
-CVXPY = False
-if(CVXPY):
-   from opt_problem_evs_cvxpy import *
-else:
-   from opt_problem_evs_gurobi import *
+   
+from opt_problem_loader import *
 
 import time
 import psutil
@@ -102,39 +98,21 @@ if( mod != 0):
          
 # every EV and the aggregator has its own optimization problem which is solved independantly
 # but each are subject to a common equilibrium constraint
-opt_probs = np.empty((n,), dtype=np.object)      
-
 if(rank == 0 and DISP):
-           print 'Reading in data ...' 
-           
+           print 'Reading in data ...'            
 
 # Reading in the data
 if rank == 0:
        
-        # w.l.o.g. and for convenience, the aggregator is the 0th element
-        problem = OptProblem_Aggregator_PriceBased()  
-
-        price= problem.price # Base demand profile 
-        p=np.tile(price,(4,1))
-        p=p / (3600*1000) * deltaT  # scaling of price in EUR/kW
-        problem.p=p
-
-        problem.re=  100e3 *np.ones((T,1))  # maximal aviliable load 1GW 
-        problem.xamin=-100e3*np.ones((T,1))
-        xmax=problem.re
-        
-        OptProblem_PriceBased_Home.gamma = gamma
-        
-        opt_probs[0] = problem
-        
-        for i in xrange(1, n):
-              problem = OptProblem_PriceBased_Home(i, V2G)
-              opt_probs[i] = problem
+       # Reading in the data   
+       opt_probs = OptProblemLoader_PriceBased(chargeStrategy, gamma, V2G).load(0, n)
+       # w.l.o.g. and for convenience, the aggregator is the 0th element
+       prob_aggr = opt_probs[0]
+       xmax=prob_aggr.re
               
 else:
-        for i in xrange(n):
-              problem = OptProblem_PriceBased_Home(startidx + i, V2G)
-              opt_probs[i] = problem
+       # Reading in the data   
+       opt_probs = OptProblemLoader_PriceBased(chargeStrategy, gamma, V2G).load(startidx, n)
                  
 
 eps_pri = np.sqrt(N)  # Primal stopping criteria for convergence
