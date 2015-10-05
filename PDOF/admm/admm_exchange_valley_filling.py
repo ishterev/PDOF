@@ -202,7 +202,7 @@ for k in xrange(MAXITER):
         ##
         ## x ∈ Rn and z ∈ Rm, where A ∈ Rp×n, B ∈ Rp×m, and c ∈ Rp
         ##
-        ## For exchange A = 1 and B = -1
+        ## For exchange A = 1, B = -1 and c = 0
         ##
         ## e_pri = sqrt(p)+ e_abs + e_rel * max{Axk2,Bzk2,c2},
         ## e_dual = sqrt(n) + e_abs + e_rel * A.T x yk2

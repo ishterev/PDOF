@@ -71,7 +71,7 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
           
           
 
-class OptProblem_PriceBased_Home(OptimizationProblemGurobi):
+class OptProblem_PriceBased_Home(OptimizationProblem_Exchange_Gurobi):
     
       gamma = 0 # Trade-off parameter
       alpha = (0.05 * 15 * 60)/3600 #Battery depresiation cost [EUR/kWh] and transformed to [EUR/kW]
@@ -185,7 +185,7 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
         
         
         
-class OptProblem_ValleyFilling_Home(OptimizationProblemGurobi):
+class OptProblem_ValleyFilling_Home(OptimizationProblem_Exchange_Gurobi):
     
       delta = 1 # demand electricity price relationship  (ONLY FOR VALLEY FILLING)
       gamma = 0 # Trade-off parameter
