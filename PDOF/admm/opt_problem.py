@@ -28,7 +28,8 @@ class OptimizationProblemCvxpy(OptimizationProblem):
     B = None
     c = None
     
-    constraints = []
+    constraints_x = []
+    constraints_z = []
     rho = Parameter(sign="positive", value = 0.5)
     
     def setX(self, shape): # (96)
@@ -49,15 +50,25 @@ class OptimizationProblemCvxpy(OptimizationProblem):
         
     def getZ(self):
         return self.z
-        
+
     def addConstraint(self, constraint):
-           self.constraints.append(constraint)
+           self.addConstraintX(constraint)
+           
+    def addConstraintX(self, constraint):
+           self.constraints_x.append(constraint)
+           
+    def addConstraintZ(self, constraint):
+           self.constraints_z.append(constraint)
     
     # Ax + Bz = c       
     def addMainConstraint(self, A = None, B = None, c = None):
         self.A = A
         self.B = B
         self.c = c
+        
+        '''
+        This actual constraint is NOT simply "used" during optimization like any other one,    
+        moreover it is itself embedded in the ADMM algorithm in the Langrangian terms
         
         x = self.getX()
         z = self.getZ()
@@ -74,7 +85,7 @@ class OptimizationProblemCvxpy(OptimizationProblem):
         if(B):
             lhs += B*z
         
-        self.constraints.append(lhs == 0)
+        self.constraints.append(lhs == 0)'''
         
     def setObjective(self, f, sense = 'min'):
         self.setObjectiveX(f, sense)
@@ -169,17 +180,35 @@ class OptimizationProblemCvxpy(OptimizationProblem):
             
     def setModel(self):
         # assert self.objective
-        self.model_x = Problem(self.objective_x, self.constraints)
+        self.model_x = Problem(self.objective_x, self.constraints_x)
+        if(self.objective_z):
+           self.model_z = Problem(self.objective_z, self.constraints_z)
         
     
     def optimize(self):
-        # assert self.model
-        self.model.solve(solver=GUROBI) #solver=CVXOPT
-        return np.array(self.x.value) 
+        return self.optimizeX()
         
     # on default same as optimize, could contain pre and postprocessing in overriding subclasses    
     def solve(self):
-        return self.optimize()
+        return self.solveX()
+        
+    def optimizeX(self):
+        # assert self.model
+        self.model_x.solve(solver=GUROBI) #solver=CVXOPT
+        return np.array(self.x.value) 
+        
+    # on default same as optimize, could contain pre and postprocessing in overriding subclasses    
+    def solveX(self):
+        return self.optimizeX()
+        
+    def optimizeZ(self):
+        # assert self.model
+        self.model_z.solve(solver=GUROBI) #solver=CVXOPT
+        return np.array(self.z.value) 
+        
+    # on default same as optimize, could contain pre and postprocessing in overriding subclasses    
+    def solveZ(self):
+        return self.optimizeZ()
         
         
         
