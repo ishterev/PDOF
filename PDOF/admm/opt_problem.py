@@ -17,8 +17,8 @@ class OptimizationProblem:
            
     def solve(self):
         pass
-        
-    def setParameters(self, rho, K):
+      
+    def setParameters(self, rho = None, *args):
         pass
     
 
@@ -120,11 +120,11 @@ class OptimizationProblemCvxpy(OptimizationProblem):
             raise ValueError('Objective has no specified sense')
             
         
-    def setParameters(self, z, u, rho = None):  
+    def setParameters(self, rho = None, z, u):  
         self.setParametersObjX(z, u, rho)  
 
         
-    def setParametersObjX(self, zk, uk, rho = None):       
+    def setParametersObjX(self, rho = None, zk, uk):       
         # commented out for tweaking
         # assert self.rho
         # assert self.K
@@ -165,7 +165,7 @@ class OptimizationProblemCvxpy(OptimizationProblem):
             raise ValueError('Objective has no specified sense')
             
            
-    def setParametersObjZ(self, xk, uk = None, rho = None):       
+    def setParametersObjZ(self, rho = None, xk, uk = None):       
         # commented out for tweaking
         # assert self.rho
         # assert self.K
