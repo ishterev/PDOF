@@ -16,7 +16,7 @@ class OptimizationProblem:
     def solve(self):
         pass
       
-    def setParameters(self, rho = None, *args):
+    def setParameters(self, rho, *args):
         pass
     
 # A single ADMM optimization problem in its general form:
@@ -139,11 +139,11 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
             raise ValueError('Objective has no specified sense')
             
         
-    def setParameters(self, rho = None, z, u):  
+    def setParameters(self, rho, z, u):  
         self.setParametersObjX(rho, z, u)  
 
         
-    def setParametersObjX(self, rho = None, zk, uk):       
+    def setParametersObjX(self, rho, zk, uk):       
         # commented out for tweaking
         # assert self.rho
         # assert self.K
@@ -184,7 +184,7 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
             raise ValueError('Objective has no specified sense')
             
            
-    def setParametersObjZ(self, rho = None, xk, uk = None):       
+    def setParametersObjZ(self, rho, xk, uk = None):       
         # commented out for tweaking
         # assert self.rho
         # assert self.K
@@ -750,11 +750,11 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         self.model_x.update()
         
         
-    def setParameters(self, rho = None, z, u):  
+    def setParameters(self, rho, z, u):  
         self.setParametersObjX(rho, z, u)  
 
         
-    def setParametersObjX(self, rho = None, zk, uk):       
+    def setParametersObjX(self, rho, zk, uk):       
         
         if(rho):
            self.rho = rho
@@ -920,7 +920,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         self.model_z.update()
         
    
-    def setParametersObjZ(self, rho = None, xk, uk = None):       
+    def setParametersObjZ(self, rho, xk, uk = None):       
         # commented out for tweaking
         # assert self.rho
         # assert self.K
