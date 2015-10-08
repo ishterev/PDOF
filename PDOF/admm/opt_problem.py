@@ -19,6 +19,9 @@ class OptimizationProblem:
     def setParameters(self, rho, *args):
         pass
     
+    def getProblemDimensions(self):
+        pass
+    
 # A single ADMM optimization problem in its general form:
 # Minimize f(x) + g(x)
 # s.t. Ax + Bz = c
@@ -32,6 +35,7 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
     z = None
     xk = None
     zk = None
+    zk_old = None
     uk = None
     
     constraints_x = []
@@ -41,6 +45,10 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
     
     objective_x = None
     objective_z = None
+    
+    m = 0
+    n = 0
+    p = 0
     
     def setX(self, shape): # (96)
         self.x = Variable(shape)# -> (96,1)
@@ -56,6 +64,7 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         self.z = Variable(shape)# -> (96,1)
         # auxiliary parameter for the k+1 th x step
         self.zk = Parameter(shape, value = np.zeros((shape, 1))) 
+        self.zk_old = Parameter(shape, value = np.zeros((shape, 1))) 
         return self.z
         
     def getZ(self):
@@ -118,11 +127,18 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
                p = c.shape[0]
                
            assert(c.shape[1] == 1)
-           
+        
+        # problem matrices
         self.A = A
         self.B = B
-        self.c = c
+        self.c = c 
+        
+        # problem dimension
+        self.m = m
+        self.n = n
+        self.p = p
     
+        # uk dimensions are now clear, declare it
         self.uk = Parameter(p, value = np.zeros((p, 1))) 
         
     def setObjective(self, f, sense = 'min'):
@@ -235,7 +251,8 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
     def optimizeX(self):
         # assert self.model
         self.model_x.solve(solver=GUROBI) #solver=CVXOPT
-        return np.array(self.x.value) 
+        self.xk = np.array(self.x.value)
+        return (self.xk, 0) 
         
     # on default same as optimize, could contain pre and postprocessing in overriding subclasses    
     def solveX(self):
@@ -244,13 +261,97 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
     def optimizeZ(self):
         # assert self.model
         self.model_z.solve(solver=GUROBI) #solver=CVXOPT
-        return np.array(self.z.value) 
+        self.zk_old = self.zk
+        self.zk = np.array(self.z.value)
+        return self.zk
         
     # on default same as optimize, could contain pre and postprocessing in overriding subclasses    
     def solveZ(self):
         return self.optimizeZ()
         
+    def solveU(self, xk = None, zk = None, uk = None):
         
+        if(xk):
+            self.xk = xk
+        if(zk):
+            self.zk = zk
+        if(uk):
+            self.uk = uk
+            
+        if(self.A is not None):
+            self.uk += self.A*self.xk
+        
+        if(self.B is not None):
+            self.uk += self.B * self.zk
+            
+        if(self.c is not None):
+            self.uk -= self.c
+                 
+        return self.uk
+        
+    def getPrimalResidual(self, xk = None, zk = None):
+        
+        if(xk):
+            self.xk = xk
+        if(zk):
+            self.zk = zk
+        
+        rk = 0
+        if(self.A is not None):
+            rk += self.A*self.xk
+        
+        if(self.B is not None):
+            rk += self.B * self.zk
+            
+        if(self.c is not None):
+            rk -= self.c
+            
+        return rk
+        
+    
+    def getDualResidual(self, zk = None, zk_old = None):
+        
+        if(self.A is None or self.B is None):
+            return 0
+        
+        if(zk):
+           #self.zk_old = self.zk
+           self.zk = zk
+        if(zk_old):
+           self.z_old = z_old
+           
+        sk = self.zk - self.z_old
+        sk *= self.A.T * self.B
+        #sk *= self.rho # multiplied afterward in the ADMM algorithm
+        
+        return sk
+        
+        
+    def getPrimalFeasability(self):
+        a = 0
+        if(self.A is not None):
+            a = self.A * self.xk
+        b = 0   
+        if(self.B is not None):
+            b = self.B * self.zk
+        c = 0   
+        if(self.c):
+           c = self.c
+           
+        return (a,b,c)
+        
+    
+    def getDualFeasability(self):
+        a = 0
+        if(self.A is not None):
+            a = self.A.T * self.uk
+               
+        return a
+        
+    def getProblemDimensions(self):
+        return (self.n,self.m,self.p) # A (pxn) , B (pxm), c (p,1)
+           
+    
 # A single ADMM optimization problem in its general form:
 # Minimize f(x) + g(x)
 # s.t. Ax + Bz = c        
@@ -265,6 +366,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     z = None
     xk = None
     zk = None
+    zk_old = None
     uk = None
     
     rho = 0.5
@@ -274,6 +376,10 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     
     objective_x = None
     objective_z = None
+    
+    m = 0
+    n = 0
+    p = 0
     
     
     def setX(self, shape): 
@@ -309,6 +415,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         
         # auxiliary parameter for the k+1 th x step
         self.zk = np.zeros((shape, 1))
+        self.zk_old = np.zeros((shape, 1))
 
         return self.x
         
@@ -650,10 +757,17 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
                
            assert(c.shape[1] == 1)
            
+        # problem matrices
         self.A = A
         self.B = B
-        self.c = c
+        self.c = c 
         
+        # problem dimension
+        self.m = m
+        self.n = n
+        self.p = p
+    
+        # uk dimensions are now clear, declare it
         self.uk = np.zeros((p, 1))
         
     def setObjective(self, f, sense = 'min'):
@@ -760,18 +874,11 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         
         # A is of the form (p,n) , B - (p,m) and c - (p,1)
         # assert uk is (p,1) and zk is (m,1)     
-        m = -1
-        n = -1
-        p = -1        
-        if(A is not None):
-            n = A.shape[1]
-            p = A.shape[0] 
-        
+        m = self.m
+        n = self.n
+        p = self.p       
+                
         if(B is not None):
-           m = B.shape[1]
-           if(p < 0):
-              p = B.shape[0] 
-            
            assert(zk.shape == (m,1))      
         
         assert(uk is not None)
@@ -818,7 +925,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         
     def setParametersObjX(self, rho, zk, uk):       
         
-        if(rho):
+        if(rho is not None):
            self.rho = rho
            
         # (n) -> (n,1)
@@ -939,19 +1046,12 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         
         # A is of the form (p,n) , B - (p,m) and c - (p,1)
         # assert xk is (n,1) and uk is (p,1)   
-        m = -1
-        n = -1
-        p = -1        
-        if(A is not None):
-            n = A.shape[1]
-            p = A.shape[0] 
-            
-            assert(xk.shape == (n,1)) 
+        m = self.m
+        n = self.n
+        p = self.p   
         
-        if(B is not None):
-           m = B.shape[1]
-           if(p < 0):
-              p = B.shape[0] 
+        if(A is not None):
+            assert(xk.shape == (n,1)) 
             
         assert(uk is not None) 
         assert(uk.shape == (p,1))
@@ -996,9 +1096,9 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         # assert self.rho
         # assert self.K
         
-        if(rho):
+        if(rho is None):
            self.rho = rho        
-        if(uk):
+        if(uk is not None):
            self.uk = uk
            
         self.xk = xk   
@@ -1030,7 +1130,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
            for i in xrange(n):
                x[i][0] = self.getX()[i].x
                           
-        return x 
+        return (x,0) 
         
     # on default same as optimize, could contain pre and postprocessing in overriding subclasses    
     def solveX(self):
@@ -1051,6 +1151,90 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     # on default same as optimize, could contain pre and postprocessing in overriding subclasses    
     def solveZ(self):
         return self.optimizeZ()
+        
+    def solveU(self, xk, zk, uk):
+        
+        if(xk is not None):
+            self.xk = xk
+        if(zk is not None):
+            self.zk = zk
+        if(uk is not None):
+            self.uk = uk
+            
+        if(self.A is not None):
+            self.uk += self.A * self.xk
+        
+        if(self.B is not None):
+            self.uk += self.B * self.zk
+            
+        if(self.c is not None):
+            self.uk -= self.c
+                 
+        return self.uk
+        
+    
+    def getPrimalResidual(self, xk = None, zk = None):
+        
+        if(xk is None):
+            self.xk = xk
+        if(zk is None):
+            self.zk = zk
+        
+        rk = 0
+        if(self.A is not None):
+            rk += self.A*self.xk
+        
+        if(self.B is not None):
+            rk += self.B * self.zk
+            
+        if(self.c is not None):
+            rk -= self.c
+            
+        return rk
+        
+    
+    def getDualResidual(self, zk = None, zk_old = None):
+        
+        if(self.A is None or self.B is None):
+            return 0
+        
+        if(zk is not None):
+           #self.zk_old = self.zk
+           self.zk = zk
+        if(zk_old is not None):
+           self.z_old = z_old
+           
+        sk = self.zk - self.z_old
+        sk *= self.A.T * self.B
+        #sk *= self.rho # multiplied afterward in the ADMM algorithm
+        
+        return sk
+        
+        
+    def getPrimalFeasability(self):
+        a = 0
+        if(self.A is not None):
+            a = self.A * self.xk
+        b = 0   
+        if(self.B is not None):
+            b = self.B * self.zk
+        c = 0   
+        if(self.c is not None):
+           c = self.c
+           
+        return (a,b,c)
+        
+    
+    def getDualFeasability(self):
+        a=0
+        if(self.A is not None):
+            a = self.A.T * self.uk
+               
+        return a
+        
+        
+    def getProblemDimensions(self):
+        return (self.n,self.m,self.p) # A (pxn) , B (pxm), c (p,1)
  
 ######################################################################################################
 #
@@ -1067,10 +1251,12 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
 class OptimizationProblem_Exchange_Cvxpy(OptimizationProblem):
     
     constraints = []
+    n = 0
     
     # objective function has only one variable that is x
-    def setX(self, shape): # (96)
-        self.x = Variable(shape) # -> (96,1)
+    def setX(self, n):
+        self.x = Variable(n)
+        self.n = n
         return self.x
         
     def getX(self):
@@ -1122,6 +1308,9 @@ class OptimizationProblem_Exchange_Cvxpy(OptimizationProblem):
     def solve(self):
         return self.optimize()
         
+    def getProblemDimensions(self):
+        return (n, n, n)
+        
         
 ######################################################################################################
 #
@@ -1137,14 +1326,17 @@ class OptimizationProblem_Exchange_Cvxpy(OptimizationProblem):
 ######################################################################################################            
 class OptimizationProblem_Exchange_Gurobi(OptimizationProblem):
     
+    n = 0
+    
     # objective function has only one variable that is x 
-    def setX(self, shape): 
+    def setX(self, n): 
          
         # Add variables to model
-        for i in xrange(shape): # n <=> (n,1)
+        for i in xrange(n): 
             self.model.addVar(lb = -GRB.INFINITY) # N.B.!!! otherwise lb is set on default to 0
         self.model.update()
-        self.x = self.model.getVars()         
+        self.x = self.model.getVars()          
+        self.n = n
 
         return self.x
         
@@ -1416,6 +1608,7 @@ class OptimizationProblem_Exchange_Gurobi(OptimizationProblem):
         return self.optimize()
     
     
-         
+    def getProblemDimensions(self):
+        return (n,n,n)
             
  

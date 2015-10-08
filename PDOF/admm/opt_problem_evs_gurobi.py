@@ -68,6 +68,10 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
           
           return (x,cost)
           
+    
+      def getProblemDimensions(self):
+          return (T,T,T)
+          
           
           
 
@@ -146,7 +150,9 @@ class OptProblem_PriceBased_Home(OptimizationProblem_Exchange_Gurobi):
 
           return (x , cost)
                
-        
+      
+      def getProblemDimensions(self):
+          return (T,T,T)
         
 
 class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
