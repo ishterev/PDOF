@@ -4,12 +4,10 @@ Created on Sat May 09 00:06:45 2015
 
 @author: shterev
 """
-#from cvxpy import *
 import numpy as np
 from scipy.linalg.blas import ddot
-from cvxpy import *
+from gurobipy import *
 
-import os
 import h5py
 
 from opt_problem import *
@@ -18,9 +16,10 @@ DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))
 
 deltaT = 900 #=15*60  Time slot duration [sec]
 T = 96 #= 24*3600/deltaT # Number of time slots
-
-
-class OptProblem_Aggregator_PriceBased(OptimizationProblem):
+I = np.identity(T)
+O = np.zeros((T,1))
+        
+class OptProblem_Aggregator_PriceBased(OptimizationProblem_Gurobi):
     
       p = None                # regularization
       re = None 
@@ -45,14 +44,29 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
           self.xamin=-100e3*np.ones((T,1))
           self.xmax=self.re
           
+          self.setModel()
+         
+          self.setX(T)
+          self.setZ(T)
           
-      def setParameters(self, rho, K):
-                  
+          # x - z = 0
+          self.addMainConstraint(I, -I, O)
+          
+          # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
+          self.setObjectiveZ([None], 'min')# [None] = 0x^2 + 0x + 0
+          self.addConstraintZ( [I, '==', O]) #sum_entries(self.z) == 0
+         
+          
+          
+          
+      def setParametersObjX(self, rho, zk, uk):                  
           self.rho = rho         #augement cost parameter
-          self.K = K # xold - xmean - u  Normalization parameter
+          self.zk = zk
+          self.uk = uk
+          self.K = zk - uk # xold - xmean - u  Normalization parameter
           
           
-      def solve(self):
+      def solveX(self):
           
           x= self.K + self.p/self.rho          
  
@@ -64,15 +78,18 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
           indx = np.where(x>-self.xamin)
           if indx:
               x[indx]=-self.xamin[indx]
+              
+           
+          self.x.value = x
  
-
           cost = -np.dot(self.p.T, x) # -p'*x
           
           return (x,cost)
           
           
           
-class OptProblem_PriceBased_Home(OptimizationProblem_Exchange_Cvxpy):
+
+class OptProblem_PriceBased_Home(OptimizationProblem_Gurobi):
     
       gamma = 0 # Trade-off parameter
       alpha = (0.05 * 15 * 60)/3600 #Battery depresiation cost [EUR/kWh] and transformed to [EUR/kW]
@@ -94,54 +111,68 @@ class OptProblem_PriceBased_Home(OptimizationProblem_Exchange_Cvxpy):
           for key,val in data.items() :
        
               if(key == 'A'):       
-                 self.A = data[key][()].T 
+                 self.A_in = data[key][()].T 
           
               if(key == 'R'):
-                 self.R = data[key][()][0][0]
+                 self.R_in = data[key][()][0][0]
                  
               if(key == 'd'):
-                 self.d = data[key][()] 
+                 self.d_in = data[key][()] 
                  
               if(key == 'B'): # and self.discharge
-                 self.B = data[key][()].T   
+                 self.B_in = data[key][()].T   
                  
               if(key == 'S_max'): # and self.discharge
-                 self.Smax = data[key][()].T
+                 self.Smax_in = data[key][()].T
                  
               if(key == 'S_min'): # and self.discharge
-                 self.Smin = data[key][()].T
+                 self.Smin_in = data[key][()].T
           
           data.close()          
           
-          self.setX(T)
-          
-          self.addConstraint(self.d * self.xmin <= self.x) #lb
-          self.addConstraint(self.x <= self.d * self.xmax ) #ub
-          # Aeq * x = beq 
-          self.addConstraint(self.A * self.x == self.R)
-          
-           # Smin <= B * x <= Smax
-          if self.discharge:  # yes V2G           
-             self.addConstraint(self.Smin - 1e-4 <= self.B*self.x)
-             self.addConstraint(self.B*self.x <= self.Smax + 1e-4)
-             
-           
-          f = self.gamma * self.alpha * sum_squares(self.x)
-          self.setObjective(f, 'min')
-         
           self.setModel()
-         
-           
-      def solve(self):
           
-        xRslt =  self.optimize()
-        costRslt=self.gamma*self.alpha*ddot(xRslt, xRslt)
-        
-        return (xRslt, costRslt) 
+          self.setX(T)
+          self.setZ(T)
+          
+          # x - z = 0
+          self.addMainConstraint(I, -I, O)
+          
+          self.addConstraintX([I, '>=', self.d * self.xmin]) # lb
+          self.addConstraintX([I, '<=', self.d * self.xmax]) # ub
+          
+          self.addConstraintX([self.A, '==', self.R]) 
+              
+          # Smin <= B * x <= Smax
+          if self.discharge:  # yes V2G 
+          
+             self.addConstraintX([self.B, '>=', self.Smin - 1e-4])
+             self.addConstraintX([self.B, '<=', self.Smax + 1e-4])
+             
+             
+          # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
+          self.setObjectiveZ([None], 'min')# [None] = 0x^2 + 0x + 0
+          self.addConstraintZ( [I, '==', O]) #sum_entries(self.z) == 0
+                           
+           
+      def solveX(self):          
+          
+          if(self.gamma == 0):
+              obj = [None]
+          else:# f = gamma * alpha * x^2
+              obj = [self.gamma * self.alpha * I, None]
+              
+          self.setObjectiveX(obj, 'min')
+      
+          x = self.optimizeX()                 
+          cost = self.gamma*self.alpha*ddot(x,x)             
+
+          return (x , cost)
+               
         
         
 
-class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
+class OptProblem_Aggregator_ValleyFilling(OptimizationProblem_Gurobi):
         
       def __init__(self): 
           
@@ -157,19 +188,33 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
           
           data.close()
           
+          self.setModel()
           
-      def setParameters(self, rho, K):
-                  
+          self.setX(T)
+          self.setZ(T)
+          
+          # x - z = 0
+          self.addMainConstraint(I, -I, O)
+          
+          # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
+          self.setObjectiveZ([None], 'min')# [None] = 0x^2 + 0x + 0
+          self.addConstraintZ( [I, '==', O]) #sum_entries(self.z) == 0
+          
+          
+                
+      def setParametersObjX(self, rho, zk, uk):                  
           self.rho = rho         #augement cost parameter
-          self.K = K # xold - xmean - u  Normalization parameter
+          self.zk = zk
+          self.uk = uk
+          self.K = zk - uk # xold - xmean - u  Normalization parameter
           
           
-      def solve(self):
+      def solveX(self):
           
           x = self.rho/(self.rho-2)* self.K - 2/(self.rho-2) * self.D
 
           cost = ddot(self.D-x,self.D-x) #LA.norm(self.D-x)^2
-          
+                    
           return (x,cost)
           
           
@@ -177,7 +222,7 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
         
         
         
-class OptProblem_ValleyFilling_Home(OptimizationProblem_Exchange_Cvxpy):
+class OptProblem_ValleyFilling_Home(OptimizationProblem_Gurobi):
     
       delta = 1 # demand electricity price relationship  (ONLY FOR VALLEY FILLING)
       gamma = 0 # Trade-off parameter
@@ -200,52 +245,65 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem_Exchange_Cvxpy):
           for key,val in data.items() :
        
               if(key == 'A'):       
-                 self.A = data[key][()].T 
+                 self.A_in = data[key][()].T 
           
               if(key == 'R'):
-                 self.R = data[key][()][0][0]
+                 self.R_in = data[key][()][0][0]
                  
               if(key == 'd'):
-                 self.d = data[key][()] 
+                 self.d_in = data[key][()] 
                  
               if(key == 'B'): # and self.discharge
-                 self.B = data[key][()].T   
+                 self.B_in = data[key][()].T   
                  
               if(key == 'S_max'): # and self.discharge
-                 self.Smax = data[key][()].T
+                 self.Smax_in = data[key][()].T
                  
               if(key == 'S_min'): # and self.discharge
-                 self.Smin = data[key][()].T
+                 self.Smin_in = data[key][()].T
           
-          data.close()          
+          data.close()  
+          
+          self.setModel()  
           
           self.setX(T)
+          self.setZ(T)
           
-          self.addConstraint(self.d * self.xmin <= self.x) #lb
-          self.addConstraint(self.x <= self.d * self.xmax ) #ub
-          # Aeq * x = beq 
-          self.addConstraint(self.A * self.x == self.R)
+          # x - z = 0
+          self.addMainConstraint(I, -I, O)
           
-           # Smin <= B * x <= Smax
-          if self.discharge:  # yes V2G           
-             self.addConstraint(self.Smin - 1e-4 <= self.B*self.x)
-             self.addConstraint(self.B*self.x <= self.Smax + 1e-4)
+          self.addConstraintX([I, '>=', self.d_in * self.xmin]) # lb
+          self.addConstraintX([I, '<=', self.d_in * self.xmax]) # ub
+          
+          self.addConstraintX([self.A_in, '==', self.R_in]) 
+              
+          # Smin <= B * x <= Smax
+          if self.discharge:  # yes V2G 
+          
+             self.addConstraintX([self.B_in, '>=', self.Smin_in - 1e-4])
+             self.addConstraintX([self.B_in, '<=', self.Smax_in + 1e-4])
              
+          
+          # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
+          self.setObjectiveZ([None], 'min')# [None] = 0x^2 + 0x + 0
+          self.addConstraintZ( [I, '==', O]) #sum_entries(self.z) == 0
            
-          f = self.gamma * self.alpha * sum_squares(self.x)
-          self.setObjective(f, 'min')
-         
-          self.setModel()  
-         
-                      
-      def solve(self):
-
-        xRslt =  self.optimize()
-        costRslt=self.gamma*self.delta*self.alpha*ddot(xRslt, xRslt) #self.problem.value    
-        
-        return (xRslt, costRslt) 
+           
+      def solveX(self):
           
+          if(self.gamma == 0):
+              obj = [None]
+          else:# f = gamma * alpha * x^2
+              obj = [self.gamma * self.alpha * I, None]
+              
+          self.setObjectiveX(obj, 'min')
+      
+          x = self.optimizeX()                            
           
+          cost = self.gamma*self.delta*self.alpha * ddot(x,x)
+              
+          return (x , cost)
+               
                 
   
 def loadEV(strategy, idx):
@@ -288,8 +346,9 @@ if __name__ == "__main__":
    
    a = OptProblem_Aggregator_ValleyFilling()
    
-   a.setParameters(0.5, np.zeros((96, 1)))
-   x, c = a.solve()
+   a.setParametersObjX(0.5, np.zeros((96, 1)), np.zeros((96, 1)))
+   x, c = a.solveX()
+   z = a.solveZ()
    
    #print x
    
@@ -304,10 +363,12 @@ if __name__ == "__main__":
    OptProblem_ValleyFilling_Home.alpha /= OptProblem_ValleyFilling_Home.delta
    
    op = OptProblem_ValleyFilling_Home(1, True)   
-   op.setParameters(0.5, np.zeros((96, 1)))
-   x, c = op.solve()
+   op.setParametersObjX(0.5, np.zeros((96, 1)), np.zeros((96, 1)))
+   x, c = op.solveX()
+   z = op.solveZ()
    
    print x
+   print z
    
    
    

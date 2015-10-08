@@ -46,7 +46,7 @@ class OptProblemLoader_PriceBased(OptProblemLoader):
           self.gamma = gamma
           self.V2G = V2G
           
-      # load optimization problem from stratIdx to endIdx - 1 including
+      # load optimization problem from startIdx to endIdx - 1 including
       def load(self, startIdx, endIdx):
     
           opt_probs = np.empty((endIdx,), dtype=np.object)

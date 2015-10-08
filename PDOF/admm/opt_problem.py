@@ -28,15 +28,25 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
     B = None
     c = None
     
+    x = None
+    z = None
+    xk = None
+    zk = None
+    uk = None
+    
     constraints_x = []
     constraints_z = []
+    
     rho = Parameter(sign="positive", value = 0.5)
+    
+    objective_x = None
+    objective_z = None
     
     def setX(self, shape): # (96)
         self.x = Variable(shape)# -> (96,1)
         # auxiliary parameters for the k+1 th z step
-        self.xk = Parameter(shape[0], value = np.zeros(shape)) 
-        self.uk = Parameter(value = 0) 
+        self.xk = Parameter(shape, value = np.zeros((shape, 1))) 
+        #self.uk = Parameter(value = 0) 
         return self.x
         
     def getX(self):
@@ -45,7 +55,7 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
     def setZ(self, shape): # (96)
         self.z = Variable(shape)# -> (96,1)
         # auxiliary parameter for the k+1 th x step
-        self.zk = Parameter(shape[0], value = np.zeros(shape))  
+        self.zk = Parameter(shape, value = np.zeros((shape, 1))) 
         return self.z
         
     def getZ(self):
@@ -69,17 +79,22 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
     #
     #########################
     def addMainConstraint(self, A = None, B = None, c = None):
+        
+        assert self.x
+        assert self.z
                 
         # consistency checks x ∈ Rn and z ∈ Rm, where A ∈ Rp×n, B ∈ Rp×m, and c ∈ Rp
-        m,n,p = -1
-        if(A):
+        m = -1
+        n = -1
+        p = -1
+        if(A is not None):
            # normalization (n) -> (1,n) 
            if(len(A.shape) == 1):
               A.reshape((1, A.shape[0]))
            p,n = A.shape
            assert(self.getX().size[0] == n)
            
-        if(B):
+        if(B is not None):
            # normalization (m) -> (1,m) 
            if(len(B.shape) == 1):
               B.reshape((1, B.shape[0]))
@@ -91,7 +106,9 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
            else:
               p = B.shape[0]
            
-        if(c):
+        if(c is not None):
+           if(not isinstance(c, np.ndarray)):
+               c = c * np.ones((p,1))
            # (p) -> (p,1)
            if(len(c.shape) == 1):
               c.reshape((c.shape[0], 1)) 
@@ -105,6 +122,8 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         self.A = A
         self.B = B
         self.c = c
+    
+        self.uk = Parameter(p, value = np.zeros((p, 1))) 
         
     def setObjective(self, f, sense = 'min'):
         self.setObjectiveX(f, sense)
@@ -113,16 +132,16 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
               
         # min f(x) + 1/2 * rho * ||A * x + B * zk - c + uk||2
         # expr = A * x + B * zk - c + uk 
-        if(self.c):
+        if(self.c is not None):
            expr = -self.c
         else:
            expr = 0          
         # eventually cosnistency checks x ∈ Rn and z ∈ Rm, where A ∈ Rp×n, B ∈ Rp×m, and c ∈ Rp         
-        if(self.A):
+        if(self.A is not None):
            expr += self.A * self.x 
-        if(self.B):
+        if(self.B is not None):
            expr += self.B * self.zk
-        if(self.uk):
+        if(self.uk is not None):
            expr += self.uk
         
         # add proximal term to objective
@@ -148,26 +167,28 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         # assert self.rho
         # assert self.K
         
-        if(rho):
+        if(rho is not None):
            self.rho.value = rho
-        self.zk.value = zk
-        self.uk.value = uk
+        if(self.zk is not None):
+           self.zk.value = zk
+        if(self.uk is not None):
+           self.uk.value = uk
         
         
     def setObjectiveZ(self, g, sense = 'min'):
               
         # argmin g(z) + 1/2 * rho * ||A * xk + B * z - c + uk||2
         # expr = A * xk + B * z - c + uk 
-        if(self.c):
+        if(self.c is not None):
            expr = -self.c
         else:
            expr = 0          
         # eventually cosnistency checks x ∈ Rn and z ∈ Rm, where A ∈ Rp×n, B ∈ Rp×m, and c ∈ Rp         
-        if(self.A):
+        if(self.A is not None):
            expr += self.A * self.xk 
-        if(self.B):
+        if(self.B is not None):
            expr += self.B * self.z
-        if(self.uk):
+        if(self.uk is not None):
            expr += self.uk
         
         # add proximal term to objective
@@ -189,18 +210,18 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         # assert self.rho
         # assert self.K
         
-        if(rho):
+        if(rho is not None):
            self.rho.value = rho        
-        if(uk):
+        if(uk is not None):
            self.uk.value = uk
            
         self.xk.value = xk   
             
             
     def setModel(self):
-        # assert self.objective
-        self.model_x = Problem(self.objective_x, self.constraints_x)
-        if(self.objective_z):
+        if(self.objective_x is not None):
+           self.model_x = Problem(self.objective_x, self.constraints_x)
+        if(self.objective_z is not None):
            self.model_z = Problem(self.objective_z, self.constraints_z)
         
     
@@ -240,9 +261,20 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     B = None
     c = None
     
+    x = None
+    z = None
+    xk = None
+    zk = None
+    uk = None
+    
+    rho = 0.5
+    
     constraints_x = []
     constraints_z = []
-    rho = 0.5
+    
+    objective_x = None
+    objective_z = None
+    
     
     def setX(self, shape): 
     
@@ -250,14 +282,14 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         #assert len(shape) == 1 or len(shape) == 2
          
         # Add variables to model
-        for i in xrange(shape[0]):# shape is either of the form (n,1) or (n)
+        for i in xrange(shape):# n <=> (n,1)
             self.model_x.addVar(lb = -GRB.INFINITY) # N.B.!!! otherwise lb is set on default to 0
         self.model_x.update()
         self.x = self.model_x.getVars()     
         
         # auxiliary parameters for the k+1 th z step
-        self.xk = np.zeros(shape)
-        self.uk = 0
+        self.xk = np.zeros((shape, 1))
+        #self.uk = 0
 
         return self.x
         
@@ -270,13 +302,13 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         #assert len(shape) == 1 or len(shape) == 2
          
         # Add variables to model
-        for i in xrange(shape[0]):# shape is either of the form (n,1) or (n)
+        for i in xrange(shape):# shape is either of the form (n,1) or (n)
             self.model_z.addVar(lb = -GRB.INFINITY) # N.B.!!! otherwise lb is set on default to 0
         self.model_z.update()
         self.z = self.model_z.getVars()     
         
         # auxiliary parameter for the k+1 th x step
-        self.zk = np.zeros(shape)
+        self.zk = np.zeros((shape, 1))
 
         return self.x
         
@@ -337,6 +369,9 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
              # normalization (n) -> (1,n), 
              if(len(B.shape) == 1):
                 B.reshape((1, B.shape[0]))
+
+             if(not isinstance(b, np.ndarray)):
+                b = b * np.ones((1,1))                                
              # (1) -> (1,1)
              if(len(b.shape) == 1):# should not happen, (n) numpy arrays are always read in as (n,1)
                 b.reshape((b.shape[0], 1))  
@@ -395,6 +430,9 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
              # normalization (n) -> (1,n) 
              if(len(A.shape) == 1):
                 A.reshape((1, A.shape[0]))
+                
+             if(not isinstance(b, np.ndarray)):
+                b = b * np.ones((1,1)) 
              # (n) -> (n,1)
              if(len(b.shape) == 1):# should not happen, (n) numpy arrays are always read in as (n,1)
                 b.reshape((b.shape[0], 1))  
@@ -472,6 +510,9 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
              # normalization (n) -> (1,n), 
              if(len(B.shape) == 1):
                 B.reshape((1, B.shape[0]))
+                
+             if(not isinstance(b, np.ndarray)):
+                b = b * np.ones((1,1))   
              # (1) -> (1,1)
              if(len(b.shape) == 1):# should not happen, (n) numpy arrays are always read in as (n,1)
                 b.reshape((b.shape[0], 1))  
@@ -530,6 +571,9 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
              # normalization (n) -> (1,n) 
              if(len(A.shape) == 1):
                 A.reshape((1, A.shape[0]))
+                
+             if(not isinstance(b, np.ndarray)):
+                b = b * np.ones((1,1))   
              # (n) -> (n,1)
              if(len(b.shape) == 1):# should not happen, (n) numpy arrays are always read in as (n,1)
                 b.reshape((b.shape[0], 1))  
@@ -566,9 +610,14 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     #
     #########################################################################################
     def addMainConstraint(self, A = None, B = None, c = None):
+        
+        assert self.x
+        assert self.z
                 
         # consistency checks x ∈ Rn and z ∈ Rm, where A ∈ Rp×n, B ∈ Rp×m, and c ∈ Rp
-        m,n,p = -1
+        m = -1
+        n = -1
+        p = -1
         if(A is not None):
            # normalization (n) -> (1,n) 
            if(len(A.shape) == 1):
@@ -589,6 +638,8 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
               p = B.shape[0]
            
         if(c is not None):
+           if(not isinstance(c, np.ndarray)):
+              c = c * np.ones((p,1))
            # (p) -> (p,1)
            if(len(c.shape) == 1):
               c.reshape((c.shape[0], 1)) 
@@ -602,6 +653,8 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         self.A = A
         self.B = B
         self.c = c
+        
+        self.uk = np.zeros((p, 1))
         
     def setObjective(self, f, sense = 'min'):
         self.setObjectiveX(f, sense)
@@ -646,6 +699,9 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
                assert B.shape == (1,n) 
                        
             fexpr = QuadExpr()
+            # The default value for the target function. A constant is good e.g. to represent 
+            # the indicator function (with the appropriate constraint sum(xi) == 0) etc.
+            fexpr += 0
             if(A is not None): 
                for i in xrange(n):
                 
@@ -671,6 +727,9 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
                assert A.shape == (1,n)             
                        
             fexpr = LinExpr() 
+            # The default value for the target function. A constant is good e.g. to represent 
+            # the indicator function (with the appropriate constraint sum(xi) == 0) etc.
+            fexpr += 0
             if(A is not None): 
                for i in xrange(n):
                    if A[0][i] != 0:
@@ -701,7 +760,9 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         
         # A is of the form (p,n) , B - (p,m) and c - (p,1)
         # assert uk is (p,1) and zk is (m,1)     
-        m,n,p = -1        
+        m = -1
+        n = -1
+        p = -1        
         if(A is not None):
             n = A.shape[1]
             p = A.shape[0] 
@@ -712,7 +773,8 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
               p = B.shape[0] 
             
            assert(zk.shape == (m,1))      
-           
+        
+        assert(uk is not None)
         assert(uk.shape == (p,1))
         
         # min f(x) + 1/2 * rho * ||A * x + B * zk - c + uk||2
@@ -722,18 +784,18 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
             
             # A * x + B * zk - c + uk 
             p_expr = LinExpr() 
-            if(self.A is not None):                         
+            if(A is not None):                         
                for j in xrange(n):
                    if A[i][j] != 0:
                       p_expr += A[i][j] * x[j]
                       
-            if(self.B is not None):        
+            if(B is not None):        
                for j in xrange(m):
                    if B[i][j] != 0:
                       p_expr += B[i][j] * zk[j]
                       
-            if(self.c is not None):
-               p_expr -= self.c[i]                
+            if(c is not None):
+               p_expr -= c[i]                
             
             p_expr += uk[i]
             
@@ -816,6 +878,9 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
                assert B.shape == (1,m) 
                        
             gexpr = QuadExpr()
+            # The default value for the target function. A constant is good e.g. to represent 
+            # the indicator function (with the appropriate constraint sum(xi) == 0) etc.
+            gexpr += 0
             if(A is not None): 
                for i in xrange(m):
                 
@@ -841,6 +906,9 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
                assert A.shape == (1,m)             
                        
             gexpr = LinExpr() 
+            # The default value for the target function. A constant is good e.g. to represent 
+            # the indicator function (with the appropriate constraint sum(xi) == 0) etc.
+            gexpr += 0
             if(A is not None): 
                for i in xrange(m):
                    if A[0][i] != 0:
@@ -871,7 +939,9 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         
         # A is of the form (p,n) , B - (p,m) and c - (p,1)
         # assert xk is (n,1) and uk is (p,1)   
-        m,n,p = -1        
+        m = -1
+        n = -1
+        p = -1        
         if(A is not None):
             n = A.shape[1]
             p = A.shape[0] 
@@ -883,6 +953,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
            if(p < 0):
               p = B.shape[0] 
             
+        assert(uk is not None) 
         assert(uk.shape == (p,1))
         
         # min g(x) + 1/2 * rho * ||A * xk + B * z - c + uk||2
@@ -892,18 +963,18 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
             
             # A * x + B * zk - c + uk 
             p_expr = LinExpr() 
-            if(self.A is not None):                         
+            if(A is not None):                         
                for j in xrange(n):
                    if A[i][j] != 0:
                       p_expr += A[i][j] * xk[j]
                       
-            if(self.B is not None):        
+            if(B is not None):        
                for j in xrange(m):
                    if B[i][j] != 0:
                       p_expr += B[i][j] * z[j]
                       
-            if(self.c is not None):
-               p_expr -= self.c[i]                
+            if(c is not None):
+               p_expr -= c[i]                
             
             p_expr += uk[i]
             
@@ -955,7 +1026,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         self.model_x.optimize()         
         n = len(self.getX())  
         x = np.zeros((n, 1)) 
-        if self.model.status == GRB.status.OPTIMAL:
+        if self.model_x.status == GRB.status.OPTIMAL:
            for i in xrange(n):
                x[i][0] = self.getX()[i].x
                           
@@ -972,7 +1043,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         m = len(self.getZ())  
         z = np.zeros((m, 1)) 
         if self.model_z.status == GRB.status.OPTIMAL:
-           for i in xrange(n):
+           for i in xrange(m):
                z[i][0] = self.getZ()[i].x
                           
         return z 
@@ -1066,14 +1137,11 @@ class OptimizationProblem_Exchange_Cvxpy(OptimizationProblem):
 ######################################################################################################            
 class OptimizationProblem_Exchange_Gurobi(OptimizationProblem):
     
-    # objective function has only one variable that is x
+    # objective function has only one variable that is x 
     def setX(self, shape): 
-    
-        #assert self.model
-        #assert len(shape) == 1 or len(shape) == 2
          
         # Add variables to model
-        for i in xrange(shape[0]):# shape is either of the form (n,1) or (n)
+        for i in xrange(shape): # n <=> (n,1)
             self.model.addVar(lb = -GRB.INFINITY) # N.B.!!! otherwise lb is set on default to 0
         self.model.update()
         self.x = self.model.getVars()         
@@ -1191,6 +1259,9 @@ class OptimizationProblem_Exchange_Gurobi(OptimizationProblem):
              # normalization (n) -> (1,n) 
              if(len(A.shape) == 1):
                 A.reshape((1, A.shape[0]))
+                
+             if(not isinstance(b, np.ndarray)):
+                b = b * np.ones((1,1))
              # (n) -> (n,1)
              if(len(b.shape) == 1):# should not happen, (n) numpy arrays are always read in as (n,1)
                 b.reshape((b.shape[0], 1))  
