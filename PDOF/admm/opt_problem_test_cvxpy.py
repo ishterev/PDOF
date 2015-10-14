@@ -86,6 +86,7 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem_Cvxpy):
               
            
           self.x.value = x
+          self.xk = x
  
           cost = -np.dot(self.p.T, x) # -p'*x
           
@@ -164,10 +165,11 @@ class OptProblem_PriceBased_Home(OptimizationProblem_Cvxpy):
            
       def solveX(self):
           
-        xRslt =  self.optimize()
+        xRslt, costRslt =  self.optimizeX()
         costRslt=self.gamma*self.alpha*ddot(xRslt, xRslt)        
                    
-        self.x.value = xRslt
+        #self.x.value = xRslt
+        #self.xk = xRslt
         
         return (xRslt, costRslt) 
         
@@ -211,9 +213,13 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem_Cvxpy):
           
       def solveX(self):
           
+          if(self.rho == 2):
+              self.rho += 1e-9
+          
           x = self.rho/(self.rho-2)* self.K - 2/(self.rho-2) * self.D
                      
           self.x.value = x
+          self.xk = x
 
           cost = ddot(self.D-x,self.D-x) #LA.norm(self.D-x)^2
           
@@ -297,10 +303,11 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem_Cvxpy):
                       
       def solveX(self):
 
-        xRslt = self.optimizeX()
+        xRslt, costRslt = self.optimizeX()
         costRslt=self.gamma*self.delta*self.alpha*ddot(xRslt, xRslt) #self.problem.value    
                            
-        self.x.value = xRslt
+        #self.x.value = xRslt
+        #self.xk = xRslt
         
         return (xRslt, costRslt) 
           

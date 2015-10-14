@@ -36,6 +36,9 @@ from opt_problem_loader import *
 import time
 import psutil
 
+import sys
+import os
+
 
 # Statistics in B about system memory usage, for MB / (1024 * 1024)
 VmPeakStart = psutil.virtual_memory()[3] # memory in use up until now
@@ -54,7 +57,7 @@ chargeStrategy = 'home'
 V2G = True
 gamma = 0 #trade off parameter
 
-N_EV = 0 # Number of EVs
+N_EV = 4 # Number of EVs
 ID = '0' # number of test run
 if len(sys.argv) > 1:
     N_EV = int(sys.argv[1])

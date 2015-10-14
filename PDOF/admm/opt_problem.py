@@ -184,11 +184,11 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         # assert self.K
         
         if(rho is not None):
-           self.rho.value = rho
+           self.rho = rho #self.rho.value
         if(self.zk is not None):
-           self.zk.value = zk
+           self.zk = zk #self.zk.value
         if(self.uk is not None):
-           self.uk.value = uk
+           self.uk = uk #self.uk.value
         
         
     def setObjectiveZ(self, g, sense = 'min'):
@@ -227,11 +227,11 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         # assert self.K
         
         if(rho is not None):
-           self.rho.value = rho        
+           self.rho = rho #self.rho.value     
         if(uk is not None):
-           self.uk.value = uk
+           self.uk = uk #self.uk.value
            
-        self.xk.value = xk   
+        self.xk = xk   
             
             
     def setModel(self):
@@ -271,18 +271,18 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         
     def solveU(self, xk = None, zk = None, uk = None):
         
-        if(xk):
+        if(xk is not None):
             self.xk = xk
-        if(zk):
+        if(zk is not None):
             self.zk = zk
-        if(uk):
+        if(uk is not None):
             self.uk = uk
             
         if(self.A is not None):
-            self.uk += self.A*self.xk
+            self.uk += np.dot(self.A, self.xk)
         
         if(self.B is not None):
-            self.uk += self.B * self.zk
+            self.uk += np.dot(self.B, self.zk)
             
         if(self.c is not None):
             self.uk -= self.c
@@ -291,17 +291,17 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         
     def getPrimalResidual(self, xk = None, zk = None):
         
-        if(xk):
+        if(xk is not None):
             self.xk = xk
-        if(zk):
+        if(zk is not None):
             self.zk = zk
         
         rk = 0
         if(self.A is not None):
-            rk += self.A*self.xk
+            rk += np.dot(self.A, self.xk)
         
         if(self.B is not None):
-            rk += self.B * self.zk
+            rk += np.dot(self.B, self.zk)
             
         if(self.c is not None):
             rk -= self.c
@@ -314,14 +314,15 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         if(self.A is None or self.B is None):
             return 0
         
-        if(zk):
+        if(zk is not None):
            #self.zk_old = self.zk
            self.zk = zk
-        if(zk_old):
-           self.z_old = z_old
+        if(zk_old is not None):
+           self.zk_old = zk_old
            
-        sk = self.zk - self.z_old
-        sk *= self.A.T * self.B
+        sk = self.zk - self.zk_old
+        tmp = np.dot(self.A.T, self.B)
+        sk = np.dot(tmp, sk)
         #sk *= self.rho # multiplied afterward in the ADMM algorithm
         
         return sk
@@ -330,12 +331,12 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
     def getPrimalFeasability(self):
         a = 0
         if(self.A is not None):
-            a = self.A * self.xk
+            a = np.dot(self.A, self.xk)
         b = 0   
         if(self.B is not None):
-            b = self.B * self.zk
+            b = np.dot(self.B, self.zk)
         c = 0   
-        if(self.c):
+        if(self.c is not None):
            c = self.c
            
         return (a,b,c)
@@ -344,7 +345,7 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
     def getDualFeasability(self):
         a = 0
         if(self.A is not None):
-            a = self.A.T * self.uk
+            a = np.dot(self.A.T, self.uk)
                
         return a
         
@@ -374,6 +375,10 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     constraints_x = []
     constraints_z = []
     
+    f = None
+    g = None   
+    sense_f = None
+    sense_g = None
     objective_x = None
     objective_z = None
     
@@ -480,7 +485,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
              if(not isinstance(b, np.ndarray)):
                 b = b * np.ones((1,1))                                
              # (1) -> (1,1)
-             if(len(b.shape) == 1):# should not happen, (n) numpy arrays are always read in as (n,1)
+             if(len(b.shape) == 1):
                 b.reshape((b.shape[0], 1))  
                 
              n = self.getX().size[0]             
@@ -541,7 +546,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
              if(not isinstance(b, np.ndarray)):
                 b = b * np.ones((1,1)) 
              # (n) -> (n,1)
-             if(len(b.shape) == 1):# should not happen, (n) numpy arrays are always read in as (n,1)
+             if(len(b.shape) == 1):
                 b.reshape((b.shape[0], 1))  
                 
              n = len(self.getX())            
@@ -621,7 +626,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
              if(not isinstance(b, np.ndarray)):
                 b = b * np.ones((1,1))   
              # (1) -> (1,1)
-             if(len(b.shape) == 1):# should not happen, (n) numpy arrays are always read in as (n,1)
+             if(len(b.shape) == 1):
                 b.reshape((b.shape[0], 1))  
                 
              n = self.getZ().size[0]             
@@ -682,7 +687,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
              if(not isinstance(b, np.ndarray)):
                 b = b * np.ones((1,1))   
              # (n) -> (n,1)
-             if(len(b.shape) == 1):# should not happen, (n) numpy arrays are always read in as (n,1)
+             if(len(b.shape) == 1):
                 b.reshape((b.shape[0], 1))  
                 
              n = len(self.getZ())            
@@ -767,7 +772,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         self.n = n
         self.p = p
     
-        # uk dimensions are now clear, declare it
+        # uk dimensions are now known, declare it
         self.uk = np.zeros((p, 1))
         
     def setObjective(self, f, sense = 'min'):
@@ -786,10 +791,12 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     # [linear term] ([A], 'min' <=> minimize Ax)  
     #
     ######################################################################################
-    def setObjectiveX(self, f, sense = 'min'):
+    def setObjectiveX(self, f, sense = None):
         
         #assert self.model        
         assert len(f) >= 1
+        
+        self.f = f
         
         x = self.getX() 
         n = len(x)
@@ -855,7 +862,10 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         # Populate objective
         #
         ########################################################                    
-                     
+        if(sense is not None):
+           self.sense_f = sense
+        else:
+           sense = self.sense_f            
         if(sense == 'min'):
             self.model_x.modelSense = GRB.MINIMIZE
         elif(sense == 'max'):
@@ -944,6 +954,8 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         self.zk = zk
         self.uk = uk
         
+        self.setObjectiveX(self.f, self.sense_f)
+        
     
     
     ######################################################################################
@@ -958,10 +970,12 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     # [linear term] ([A], 'min' <=> minimize Az)  
     #
     ######################################################################################
-    def setObjectiveZ(self, g, sense = 'min'):
+    def setObjectiveZ(self, g, sense = None):
         
         #assert self.model        
-        assert len(g) >= 1
+        #assert len(g) >= 1
+        
+        self.g = g
         
         z = self.getZ() 
         m = len(z)
@@ -1026,8 +1040,12 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         #             
         # Populate objective
         #
-        ########################################################                    
-                     
+        ########################################################                             
+        if(sense is not None):
+           self.sense_g = sense
+        else:
+           sense = self.sense_g
+            
         if(sense == 'min'):
             self.model_z.modelSense = GRB.MINIMIZE
         elif(sense == 'max'):
@@ -1103,6 +1121,8 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
            
         self.xk = xk   
         
+        self.setObjectiveZ(self.g, self.sense_g)
+        
         
     def setModel(self):
         
@@ -1124,10 +1144,9 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         # assert self.model
         # Solve
         self.model_x.optimize()         
-        n = len(self.getX())  
-        x = np.zeros((n, 1)) 
+        x = np.zeros((self.n, 1)) 
         if self.model_x.status == GRB.status.OPTIMAL:
-           for i in xrange(n):
+           for i in xrange(self.n):
                x[i][0] = self.getX()[i].x
                           
         return (x,0) 
@@ -1140,10 +1159,9 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         # assert self.model
         # Solve
         self.model_z.optimize()         
-        m = len(self.getZ())  
-        z = np.zeros((m, 1)) 
+        z = np.zeros((self.m, 1)) 
         if self.model_z.status == GRB.status.OPTIMAL:
-           for i in xrange(m):
+           for i in xrange(self.m):
                z[i][0] = self.getZ()[i].x
                           
         return z 
@@ -1162,10 +1180,10 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
             self.uk = uk
             
         if(self.A is not None):
-            self.uk += self.A * self.xk
+            self.uk += np.dot(self.A, self.xk)
         
         if(self.B is not None):
-            self.uk += self.B * self.zk
+            self.uk += np.dot(self.B, self.zk)
             
         if(self.c is not None):
             self.uk -= self.c
@@ -1182,10 +1200,10 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         
         rk = 0
         if(self.A is not None):
-            rk += self.A*self.xk
+            rk += np.dot(self.A, self.xk)
         
         if(self.B is not None):
-            rk += self.B * self.zk
+            rk += np.dot(self.B, self.zk)
             
         if(self.c is not None):
             rk -= self.c
@@ -1202,10 +1220,12 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
            #self.zk_old = self.zk
            self.zk = zk
         if(zk_old is not None):
-           self.z_old = z_old
+           self.zk_old = zk_old
            
-        sk = self.zk - self.z_old
-        sk *= self.A.T * self.B
+        # rho * A.T * B * (zi-zi_old) 
+        tmp = np.dot(self.A.T, self.B) 
+        sk = self.zk - self.zk_old        
+        sk = np.dot(tmp, sk)
         #sk *= self.rho # multiplied afterward in the ADMM algorithm
         
         return sk
@@ -1214,10 +1234,10 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     def getPrimalFeasability(self):
         a = 0
         if(self.A is not None):
-            a = self.A * self.xk
+            a = np.dot(self.A, self.xk)
         b = 0   
         if(self.B is not None):
-            b = self.B * self.zk
+            b = np.dot(self.B, self.zk)
         c = 0   
         if(self.c is not None):
            c = self.c
@@ -1228,7 +1248,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     def getDualFeasability(self):
         a=0
         if(self.A is not None):
-            a = self.A.T * self.uk
+            a = np.dot(self.A.T, self.uk)
                
         return a
         

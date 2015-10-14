@@ -122,7 +122,7 @@ class OptProblem_PriceBased_Home(OptimizationProblem_Exchange_Gurobi):
           data.close()
 
           self.setModel()
-          self.setX((T,1))
+          self.setX((T))
           
           self.addConstraint([I, '>=', self.d * self.xmin]) # lb
           self.addConstraint([I, '<=', self.d * self.xmax]) # ub
@@ -237,7 +237,7 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem_Exchange_Gurobi):
                 # Smin = self.Smin
           
           self.setModel()
-          self.setX((T,1))
+          self.setX((T))
           
           self.addConstraint([I, '>=', self.d * self.xmin]) # lb
           self.addConstraint([I, '<=', self.d * self.xmax]) # ub

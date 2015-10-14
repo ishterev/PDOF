@@ -36,6 +36,7 @@ from scipy.linalg.blas import ddot, dnrm2
 import scipy.io as sio
 
 import sys
+import os
 from mpi4py import MPI
    
 from opt_problem_loader import *
@@ -50,7 +51,7 @@ VmPeakStart = psutil.virtual_memory()[3] # memory in use up until now
 # The direcory containg all EV data and a place for results etc.
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))
 
-MAXITER  = int(1e3);#int(1e4);   # Maximal amount of iterations
+MAXITER  = 50# int(1e3);#int(1e4);   # Maximal amount of iterations
 ABSTOL   = 1e-4# absolute and relative tolernce
 RELTOL   = 1e-2# 1e-2;1e-3;1e-4;
 
@@ -64,8 +65,7 @@ rank = comm.Get_rank() # rank of the(this) calling process in the communicator
 size = comm.Get_size() # number of processes in the communicator
 
 problem_type = "test_valley_filling"
-N = 5 # Number of optimization problems
-T= 0 # Number of time slots
+N = 4 # Number of optimization problems
 ID = '0' # number of test run
 if len(sys.argv) > 1:
     N = int(sys.argv[1])
@@ -146,12 +146,10 @@ if (rank == 0):
 xi = np.zeros((cs,n,1)) 
 ui = np.zeros((cs,p,1)) 
 zi = np.zeros((cs,m,1)) 
-x_mean = np.zeros((n,1)) 
 
 # Used to send and recieve data over MPI 
 send = np.zeros(7)
-recv = np.zeros(7)
-         
+recv = np.zeros(7)         
 
 if(rank == 0):                  
    
@@ -162,11 +160,9 @@ if(rank == 0):
 
 
 # ADMM loop.
-done = np.zeros(1)
 for k in xrange(MAXITER):
 
         send = np.zeros(7) # reinitialize
-        xsum = np.zeros((T,1)) # sum of all cs xi in the process
 
         for j in xrange(cs):
             
@@ -185,14 +181,14 @@ for k in xrange(MAXITER):
             ui[j] = problem.solveU(xi[j], zi[j], ui[j])
             
             # Axi + Bzi - c
-            ri = getPrimalResidual(xi[j],zi[j])
+            ri = problem.getPrimalResidual(xi[j],zi[j])
             # rho * A.T * B * (zi-zi_old)
-            si = getDualResidual(zi, zi_old)
+            si = problem.getDualResidual(zi[j], zi_old)
 
             # (Axi, Bzi, c)
-            eps_pri = getPrimalFeasability()
+            eps_pri = problem.getPrimalFeasability()
             # A.T * ui
-            eps_dual = getDualFeasability()
+            eps_dual = problem.getDualFeasability()
                         
             # used for calculating convergence
             send[0] += ddot(ri, ri)# (ri)^2
@@ -203,7 +199,7 @@ for k in xrange(MAXITER):
             send[3] += ddot(eps_pri[1], eps_pri[1])# (Bzi)^2
             send[4] += ddot(eps_pri[2], eps_pri[2])# c^2
             
-            send[5] += ddot(eps_dual, eps_dual)# A.T * ui
+            send[5] += ddot(eps_dual, eps_dual)# (A.T * ui)^2
             
             
             send[6] += cost
@@ -313,9 +309,9 @@ comm.Barrier()
 
 
 if rank == 0:
-        x = np.empty((T,N))         # Agents profile 
-        y = np.empty((T,N))         # Price vector
-        z = np.empty((T,N))         # Help variable 
+        x = np.empty((n,N))          
+        y = np.empty((p,N))         
+        z = np.empty((m,N))         
         
         xlist = []
         ylist = []

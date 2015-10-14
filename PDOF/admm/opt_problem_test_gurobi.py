@@ -54,7 +54,7 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem_Gurobi):
           
           # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
           self.setObjectiveZ([None], 'min')# [None] = 0x^2 + 0x + 0
-          self.addConstraintZ( [I, '==', O]) #sum_entries(self.z) == 0
+          self.addConstraintZ( [np.ones((1,T)), '==', 0]) #sum_entries(self.z) == 0
          
           
           
@@ -80,7 +80,8 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem_Gurobi):
               x[indx]=-self.xamin[indx]
               
            
-          self.x.value = x
+          self.x = x
+          self.xk = x
  
           cost = -np.dot(self.p.T, x) # -p'*x
           
@@ -152,7 +153,7 @@ class OptProblem_PriceBased_Home(OptimizationProblem_Gurobi):
              
           # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
           self.setObjectiveZ([None], 'min')# [None] = 0x^2 + 0x + 0
-          self.addConstraintZ( [I, '==', O]) #sum_entries(self.z) == 0
+          self.addConstraintZ( [np.ones((1,T)), '==', 0]) #sum_entries(self.z) == 0
                            
            
       def solveX(self):          
@@ -164,8 +165,11 @@ class OptProblem_PriceBased_Home(OptimizationProblem_Gurobi):
               
           self.setObjectiveX(obj, 'min')
       
-          x = self.optimizeX()                 
-          cost = self.gamma*self.alpha*ddot(x,x)             
+          x, cost = self.optimizeX()                 
+          cost = self.gamma*self.alpha*ddot(x,x)    
+          
+          #self.x = x
+          #self.xk = x
 
           return (x , cost)
                
@@ -198,7 +202,7 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem_Gurobi):
           
           # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
           self.setObjectiveZ([None], 'min')# [None] = 0x^2 + 0x + 0
-          self.addConstraintZ( [I, '==', O]) #sum_entries(self.z) == 0
+          self.addConstraintZ( [np.ones((1,T)), '==', 0]) #sum_entries(self.z) == 0
           
           
                 
@@ -211,9 +215,15 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem_Gurobi):
           
       def solveX(self):
           
+          if(self.rho == 2):
+              self.rho += 1e-9
+          
           x = self.rho/(self.rho-2)* self.K - 2/(self.rho-2) * self.D
 
           cost = ddot(self.D-x,self.D-x) #LA.norm(self.D-x)^2
+          
+          self.x = x
+          self.xk = x
                     
           return (x,cost)
           
@@ -286,7 +296,7 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem_Gurobi):
           
           # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
           self.setObjectiveZ([None], 'min')# [None] = 0x^2 + 0x + 0
-          self.addConstraintZ( [I, '==', O]) #sum_entries(self.z) == 0
+          self.addConstraintZ( [np.ones((1,T)), '==', 0]) #sum_entries(self.z) == 0
            
            
       def solveX(self):
@@ -298,7 +308,10 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem_Gurobi):
               
           self.setObjectiveX(obj, 'min')
       
-          x = self.optimizeX()                            
+          x, cost = self.optimizeX()   
+          
+          #self.x = x
+          #self.xk = x                         
           
           cost = self.gamma*self.delta*self.alpha * ddot(x,x)
               

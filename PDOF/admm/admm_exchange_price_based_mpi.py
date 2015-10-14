@@ -43,6 +43,9 @@ from opt_problem_loader import *
 import time
 import psutil
 
+import sys
+import os
+
 
 # Statistics in B about system memory usage, for MB / (1024 * 1024)
 VmPeakStart = psutil.virtual_memory()[3] # memory in use up until now
