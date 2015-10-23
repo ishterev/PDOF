@@ -54,7 +54,6 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem_Gurobi):
           
           # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
           self.setObjectiveZ([None], 'min')# [None] = 0x^2 + 0x + 0
-          self.addConstraintZ( [np.ones((1,T)), '==', 0]) #sum_entries(self.z) == 0
          
           
           
@@ -151,11 +150,18 @@ class OptProblem_PriceBased_Home(OptimizationProblem_Gurobi):
              self.addConstraintX([self.B, '<=', self.Smax + 1e-4])
              
              
+          if(self.gamma == 0):
+              obj = [None]
+          else:# f = gamma * alpha * x^2
+              obj = [self.gamma * self.alpha * I, None]
+              
+          self.setObjectiveX(obj, 'min')
+             
+             
           # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
           self.setObjectiveZ([None], 'min')# [None] = 0x^2 + 0x + 0
-          self.addConstraintZ( [np.ones((1,T)), '==', 0]) #sum_entries(self.z) == 0
                            
-           
+      '''     
       def solveX(self):          
           
           if(self.gamma == 0):
@@ -172,7 +178,7 @@ class OptProblem_PriceBased_Home(OptimizationProblem_Gurobi):
           #self.xk = x
 
           return (x , cost)
-               
+          '''
         
         
 
@@ -202,7 +208,7 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem_Gurobi):
           
           # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
           self.setObjectiveZ([None], 'min')# [None] = 0x^2 + 0x + 0
-          self.addConstraintZ( [np.ones((1,T)), '==', 0]) #sum_entries(self.z) == 0
+
           
           
                 
@@ -294,11 +300,18 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem_Gurobi):
              self.addConstraintX([self.B_in, '<=', self.Smax_in + 1e-4])
              
           
+          if(self.gamma == 0):
+              obj = [None]
+          else:# f = gamma * alpha * x^2
+              obj = [self.gamma * self.alpha * I, None]
+              
+          self.setObjectiveX(obj, 'min')
+             
+          
           # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
           self.setObjectiveZ([None], 'min')# [None] = 0x^2 + 0x + 0
-          self.addConstraintZ( [np.ones((1,T)), '==', 0]) #sum_entries(self.z) == 0
            
-           
+      '''     
       def solveX(self):
           
           if(self.gamma == 0):
@@ -316,6 +329,7 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem_Gurobi):
           cost = self.gamma*self.delta*self.alpha * ddot(x,x)
               
           return (x , cost)
+      '''
                
                 
   
@@ -343,6 +357,8 @@ if __name__ == "__main__":
     
    #reload(sys)  
    #sys.setdefaultencoding('utf8')
+    
+   '''
    
    aggr = loadAggr()
    #D,price = np.empty
@@ -378,10 +394,91 @@ if __name__ == "__main__":
    op = OptProblem_ValleyFilling_Home(1, True)   
    op.setParametersObjX(0.5, np.zeros((96, 1)), np.zeros((96, 1)))
    x, c = op.solveX()
-   z = op.solveZ()
+   #op.setParametersObjZ(0.5, x, np.zeros((96, 1)))
+   #z = op.solveZ() 
    
    print x
-   print z
+   #print z
+   
+   '''
+   
+   model = Model() 
+   model.params.OutputFlag = 0 # verbose = 1            
+   model.modelSense = GRB.MINIMIZE
+      
+   # Add variables to model
+   for i in xrange(96):# n <=> (n,1)
+        model.addVar(lb = -GRB.INFINITY) # N.B.!!! otherwise lb is set on default to 0
+   model.update()
+   x = model.getVars()     
+        
+   # auxiliary parameters for the k+1 th z step
+   uk = 0.5 * np.ones((96, 1))
+   zk = 0.3 * np.ones((96, 1))
+   #self.uk = 0   
+
+   for i in xrange(96):
+                                         
+       model.addConstr(x[i],  '<', 0.1) 
+       model.addConstr(x[i],  '>', -0.1)         
+                       
+   fexpr = LinExpr() 
+   # The default value for the target function. A constant is good e.g. to represent 
+   # the indicator function (with the appropriate constraint sum(xi) == 0) etc.
+   fexpr += 0
+   
+   A = np.identity(96)
+   B = -np.identity(96)
+   c = np.zeros((96,1))
+   
+   rho = 0.5
+   
+   obj = QuadExpr()    
+   for i in xrange(96):
+            
+       # A * x + B * zk - c + uk 
+       p_expr = LinExpr() 
+       if(A is not None):                         
+          for j in xrange(96):
+              if A[i][j] != 0:
+                 p_expr += A[i][j] * x[j]
+                      
+       if(B is not None):        
+          for j in xrange(96):
+              if B[i][j] != 0:
+                 p_expr += B[i][j] * zk[j]
+                      
+       if(c is not None):
+          p_expr -= c[i]                
+            
+       p_expr += uk[i]
+            
+       # 2nd norm 
+       obj += (p_expr) * (p_expr)            
+            
+   #obj *= rho
+   # rho * 1/2 * obj (two times *) is syntactically correct but not semantically 
+   # and delivers wrong results
+   #obj *= 0.5 
+   obj +=  fexpr     # 1/2 * (obj)    
+        
+   model.setObjective(obj)
+   model.update()
+       
+   model.optimize()         
+   xRslt = np.zeros((96, 1)) 
+   if model.status == GRB.status.OPTIMAL:
+      for i in xrange(96):
+          xRslt[i][0] = x[i].x
+              
+   print xRslt
+                          
+       
+   
+   
+   
+   
+   
    
    
    

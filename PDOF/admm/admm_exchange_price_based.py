@@ -150,38 +150,44 @@ for k in xrange(MAXITER):
         nzdiffstack = 0
         xsum = np.zeros((T,1)) # sum of all x
 
-        for j in xrange(N):
-            
-            # ADMM iteration step (simplified for optimal exchage)            
-            zi_old = z[j]
-            z[j] = x[j] - x_mean 
-                                
-            u[j] = u[j] + x_mean 
-            
+        for i in xrange(N):
+                        
             # optimization for the current EV
-            problem = opt_probs[j]
-            problem.setParameters(rho, x[j] - x_mean - u[j])
+            problem = opt_probs[i]
+            problem.setParameters(rho, x[i] - x_mean - u[i])
             # optimal profile, cost
-            x[j], ci = problem.solve()   
-            
-            # used for calculating convergence
-            nxstack += ddot(x[j], x[j])# x[j]^2
-            nystack += ddot(u[j], u[j])
-            nzstack += ddot(z[j], z[j])
-            
-            zdiff = z[j] - zi_old
-            nzdiffstack += ddot(zdiff, zdiff)
-            
+            x[i], ci = problem.solve()   
+                        
             # read in aggregator
-            if j == 0:               
-                xAggr = x[j]
+            if i == 0:               
+                xAggr = np.copy(x[i])
                 costAggr = ci
             # or accumulate EV costs 
             else:
                costEVs += ci #costEVs
             
             # sum of all agents profiles (EVs + aggregator)  
-            xsum += x[j]
+            xsum += x[i]
+            
+        
+        # the mean of all agents profiles (EVs + aggregator) 
+        x_mean = xsum / N        
+            
+        for i in xrange(N):
+            
+            # ADMM iteration step (simplified for optimal exchage)            
+            zi_old = np.copy(z[i])
+            z[i] = x[i] - x_mean 
+                                
+            u[i] = u[i] + x_mean 
+            
+            # used for calculating convergence
+            nxstack += ddot(x[i], x[i])# x[i]^2
+            nystack += ddot(u[i], u[i])
+            nzstack += ddot(z[i], z[i])
+            
+            zdiff = z[i] - zi_old
+            nzdiffstack += ddot(zdiff, zdiff)
             
         # Temporary results for the convergence test
         nxstack = np.sqrt(nxstack)  # sqrt(sum ||x_i||_2^2) 

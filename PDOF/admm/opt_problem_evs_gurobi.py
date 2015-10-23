@@ -180,6 +180,9 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
           
       def solve(self):
           
+          if(self.rho == 2):
+             self.rho += 1e-9
+          
           x = self.rho/(self.rho-2)* self.K - 2/(self.rho-2) * self.D
 
           cost = ddot(self.D-x,self.D-x) #LA.norm(self.D-x)^2

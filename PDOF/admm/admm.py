@@ -6,9 +6,9 @@ Created on Fri May 01 20:01:32 2015
 ###################################################################################################
 # To run execute the follwoing command. The console should point to this file's working directory
 #
-# mpiexec -n 4 python admm_exchange_price_based_mpi.py 100
+# python admm.py 100
 #
-# where 100 is an example for the number of EVs
+# where 100 is an example for the number of problems (EVs + Aggregator)
 ###################################################################################################
 """
 
@@ -42,7 +42,7 @@ VmPeakStart = psutil.virtual_memory()[3] # memory in use up until now
 # The direcory containg all EV data and a place for results etc.
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))
 
-MAXITER  = 500#int(1e3);#int(1e4);   # Maximal amount of iterations
+MAXITER  = 300 #int(1e3);#int(1e4);   # Maximal amount of iterations
 ABSTOL   = 1e-4# absolute and relative tolernce
 RELTOL   = 1e-2# 1e-2;1e-3;1e-4;
 
@@ -75,6 +75,7 @@ loader = OptProblemLoaderFactory._get(problem_type)
 opt_probs = loader.load(0, N)
        
 n,m,p = loader.getProblemDimensions()  # x ∈ Rn and z ∈ Rm, where A ∈ Rp×n, B ∈ Rp×m, and c ∈ Rp                    
+idf_constr = loader.getIdentificatorFunctionConstraint()
 
 eps_pri = np.sqrt(p)  # Primal stopping criteria for convergence
 eps_dual = np.sqrt(n)  # Dual stopping criteria
@@ -108,6 +109,7 @@ if (HISTORY):
 x = np.zeros((N,n,1)) 
 u = np.zeros((N,p,1)) 
 z = np.zeros((N,m,1)) 
+z_old = np.zeros((N,m,1)) 
 
 #Cost of iteration
 cost = 0
@@ -126,7 +128,7 @@ for k in xrange(MAXITER):
         nxstack = 0 # sqrt(sum ||Axi||_2^2) 
         nzstack = 0 # sqrt(sum ||Bzi||_2^2) 
         ncstack = 0 # sqrt(sum ||ci||_2^2)         
-        nystack = 0 # sqrt(sum ||Ak yk||_2^2) ; rescaling y := rho * u
+        nystack = 0 # sqrt(sum ||Ak yk||_2^2)
 
         for i in xrange(N):
             
@@ -139,8 +141,15 @@ for k in xrange(MAXITER):
             
             # zk+1 = argmin z   g(z) + (ρ/2)Axk+1 + Bz − c + uk2
             problem.setParametersObjZ(rho, x[i], u[i])
-            zi_old = z[i]
-            z[i] = problem.solveZ()
+            z_old[i] = z[i]
+            z[i] = problem.solveZ()            
+            
+            
+        if(idf_constr is not None):
+           z = idf_constr.project(z)
+            
+            
+        for i in xrange(N):
             
             # uk+1 = uk + Axk+1 + Bzk+1 − c
             u[i] = problem.solveU(x[i], z[i], u[i])
@@ -148,7 +157,7 @@ for k in xrange(MAXITER):
             # Axi + Bzi - c
             ri = problem.getPrimalResidual(x[i],z[i])
             # rho * A.T * B * (zi-zi_old)
-            si = problem.getDualResidual(z[i], zi_old)
+            si = problem.getDualResidual(z[i], z_old[i])
 
             # (Axi, Bzi, c)
             eps_pri = problem.getPrimalFeasability()
@@ -243,7 +252,7 @@ for k in xrange(MAXITER):
                 rho = t_incr * rho        
              elif(s_norm > m * r_norm):
                 rho = rho / t_decr
-        
+
              u = (rho_old/rho) * u
         
         #ri = x_mean

@@ -64,7 +64,7 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         self.z = Variable(shape)# -> (96,1)
         # auxiliary parameter for the k+1 th x step
         self.zk = Parameter(shape, value = np.zeros((shape, 1))) 
-        self.zk_old = Parameter(shape, value = np.zeros((shape, 1))) 
+        self.zk_old = np.zeros((shape, 1))
         return self.z
         
     def getZ(self):
@@ -145,7 +145,8 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         self.setObjectiveX(f, sense)
           
     def setObjectiveX(self, f, sense = 'min'):
-              
+        
+        self.f = f              
         # min f(x) + 1/2 * rho * ||A * x + B * zk - c + uk||2
         # expr = A * x + B * zk - c + uk 
         if(self.c is not None):
@@ -163,7 +164,7 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         # add proximal term to objective
         prox = sum_squares(expr)
         prox *= self.rho 
-        prox *= 1/2 # N.B.!!! *= rho/2 is syntactically correct but not semantically; *= 0.5 leads to the same incorrect result
+        prox *= 0.5 # N.B.!!! *= rho/2 is syntactically correct but not semantically; *= 0.5 leads to the same incorrect result
         f += prox
         
         if(sense == 'min'):
@@ -184,15 +185,15 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         # assert self.K
         
         if(rho is not None):
-           self.rho = rho #self.rho.value
+           self.rho.value = rho #self.rho.value
         if(self.zk is not None):
-           self.zk = zk #self.zk.value
+           self.zk.value = zk #self.zk.value
         if(self.uk is not None):
-           self.uk = uk #self.uk.value
+           self.uk.value = uk #self.uk.value
         
         
     def setObjectiveZ(self, g, sense = 'min'):
-              
+          
         # argmin g(z) + 1/2 * rho * ||A * xk + B * z - c + uk||2
         # expr = A * xk + B * z - c + uk 
         if(self.c is not None):
@@ -210,7 +211,7 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         # add proximal term to objective
         prox = sum_squares(expr)
         prox *= self.rho 
-        prox *= 1/2 # N.B.!!! *= rho/2 is syntactically correct but not semantically; *= 0.5 leads to the same incorrect result
+        prox *= 0.5 # N.B.!!! *= rho/2 is syntactically correct but not semantically;
         g += prox
         
         if(sense == 'min'):
@@ -227,11 +228,11 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         # assert self.K
         
         if(rho is not None):
-           self.rho = rho #self.rho.value     
+           self.rho.value = rho #self.rho.value     
         if(uk is not None):
-           self.uk = uk #self.uk.value
+           self.uk.value = uk #self.uk.value
            
-        self.xk = xk   
+        self.xk.value = xk   
             
             
     def setModel(self):
@@ -251,8 +252,8 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
     def optimizeX(self):
         # assert self.model
         self.model_x.solve(solver=GUROBI) #solver=CVXOPT
-        self.xk = np.array(self.x.value)
-        return (self.xk, 0) 
+        self.xk.value = np.array(self.x.value)
+        return (self.xk.value, 0) 
         
     # on default same as optimize, could contain pre and postprocessing in overriding subclasses    
     def solveX(self):
@@ -261,9 +262,9 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
     def optimizeZ(self):
         # assert self.model
         self.model_z.solve(solver=GUROBI) #solver=CVXOPT
-        self.zk_old = self.zk
-        self.zk = np.array(self.z.value)
-        return self.zk
+        self.zk_old = self.zk.value
+        self.zk.value = np.array(self.z.value) 
+        return self.zk.value
         
     # on default same as optimize, could contain pre and postprocessing in overriding subclasses    
     def solveZ(self):
@@ -272,36 +273,36 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
     def solveU(self, xk = None, zk = None, uk = None):
         
         if(xk is not None):
-            self.xk = xk
+            self.xk.value = xk
         if(zk is not None):
-            self.zk = zk
+            self.zk.value = zk
         if(uk is not None):
-            self.uk = uk
+            self.uk.value = uk
             
         if(self.A is not None):
-            self.uk += np.dot(self.A, self.xk)
+            self.uk.value += np.dot(self.A, self.xk.value)
         
         if(self.B is not None):
-            self.uk += np.dot(self.B, self.zk)
+            self.uk.value += np.dot(self.B, self.zk.value)
             
         if(self.c is not None):
-            self.uk -= self.c
+            self.uk.value -= self.c
                  
-        return self.uk
+        return self.uk.value
         
     def getPrimalResidual(self, xk = None, zk = None):
         
         if(xk is not None):
-            self.xk = xk
+            self.xk.value = xk
         if(zk is not None):
-            self.zk = zk
+            self.zk.value = zk
         
         rk = 0
         if(self.A is not None):
-            rk += np.dot(self.A, self.xk)
+            rk += np.dot(self.A, self.xk.value)
         
         if(self.B is not None):
-            rk += np.dot(self.B, self.zk)
+            rk += np.dot(self.B, self.zk.value)
             
         if(self.c is not None):
             rk -= self.c
@@ -316,11 +317,11 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
         
         if(zk is not None):
            #self.zk_old = self.zk
-           self.zk = zk
+           self.zk.value = zk
         if(zk_old is not None):
            self.zk_old = zk_old
            
-        sk = self.zk - self.zk_old
+        sk = self.zk.value - self.zk_old
         tmp = np.dot(self.A.T, self.B)
         sk = np.dot(tmp, sk)
         #sk *= self.rho # multiplied afterward in the ADMM algorithm
@@ -331,10 +332,10 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
     def getPrimalFeasability(self):
         a = 0
         if(self.A is not None):
-            a = np.dot(self.A, self.xk)
+            a = np.dot(self.A, self.xk.value)
         b = 0   
         if(self.B is not None):
-            b = np.dot(self.B, self.zk)
+            b = np.dot(self.B, self.zk.value)
         c = 0   
         if(self.c is not None):
            c = self.c
@@ -345,7 +346,7 @@ class OptimizationProblem_Cvxpy(OptimizationProblem):
     def getDualFeasability(self):
         a = 0
         if(self.A is not None):
-            a = np.dot(self.A.T, self.uk)
+            a = np.dot(self.A.T, self.uk.value)
                
         return a
         
@@ -922,7 +923,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         obj *= self.rho
         # rho * 1/2 * obj (two times *) is syntactically correct but not semantically 
         # and delivers wrong results
-        obj *= 1/2 
+        obj *= 0.5 
         obj +=  fexpr     # 1/2 * (obj)    
         
         self.model_x.setObjective(obj)
@@ -954,6 +955,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         self.zk = zk
         self.uk = uk
         
+        # redefine the objective
         self.setObjectiveX(self.f, self.sense_f)
         
     
@@ -1102,7 +1104,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         obj *= self.rho
         # rho * 1/2 * obj (two times *) is syntactically correct but not semantically 
         # and delivers wrong results
-        obj *= 1/2 
+        obj *= 0.5
         obj +=  gexpr     # 1/2 * (obj)    
         
         self.model_z.setObjective(obj)
@@ -1114,7 +1116,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         # assert self.rho
         # assert self.K
         
-        if(rho is None):
+        if(rho is not None):
            self.rho = rho        
         if(uk is not None):
            self.uk = uk
@@ -1193,9 +1195,9 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     
     def getPrimalResidual(self, xk = None, zk = None):
         
-        if(xk is None):
+        if(xk is not None):
             self.xk = xk
-        if(zk is None):
+        if(zk is not None):
             self.zk = zk
         
         rk = 0
@@ -1294,7 +1296,7 @@ class OptimizationProblem_Exchange_Cvxpy(OptimizationProblem):
         # add proximal term to objective
         prox = sum_squares(x - self.K)
         prox *= self.rho 
-        prox *= 1/2 # N.B.!!! *= rho/2 is syntactically correct but not semantically; *= 0.5 leads to the same incorrect result
+        prox *= 0.5 # N.B.!!! *= rho/2 is syntactically correct but not semantically
         f += prox
         
         if(sense == 'min'):
@@ -1585,7 +1587,7 @@ class OptimizationProblem_Exchange_Gurobi(OptimizationProblem):
         obj *= self.rho
         # rho * 1/2 * obj (two times *) is syntactically correct but not semantically 
         # and delivers wrong results
-        obj *= 1/2 
+        obj *= 0.5 
         
         # Minimize(f + (rho/2)*sum_squares(x - v))
         obj +=  fexpr     # 1/2 * (obj)    

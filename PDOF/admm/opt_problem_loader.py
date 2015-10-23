@@ -6,6 +6,8 @@ Created on Fri Sep 18 01:40:51 2015
 """
 import numpy as np
 
+from ident_func_constraint import * 
+
 CVXPY = False
    
 deltaT = 900 #=15*60  Time slot duration [sec]
@@ -44,6 +46,9 @@ class OptProblemLoader:
       
       def getProblemDimensions(self):
           pass
+      
+      def getIdentificatorFunctionConstraint(self):
+          return None
       
       
 class OptProblemLoader_PriceBased(OptProblemLoader):   
@@ -221,6 +226,9 @@ class OptProblemLoader_PriceBased_GeneralForm_Test(OptProblemLoader):
       def getProblemDimensions(self):
           return self.dims
           
+      def getIdentificatorFunctionConstraint(self):
+          return IdentificatorFunctionEquilibriumConstraint()
+          
           
 class OptProblemLoader_ValleyFilling_GeneralForm_Test(OptProblemLoader):  
     
@@ -277,3 +285,6 @@ class OptProblemLoader_ValleyFilling_GeneralForm_Test(OptProblemLoader):
                 
       def getProblemDimensions(self):
           return self.dims
+          
+      def getIdentificatorFunctionConstraint(self):
+          return IdentificatorFunctionEquilibriumConstraint()
