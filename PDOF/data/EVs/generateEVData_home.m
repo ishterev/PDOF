@@ -13,9 +13,9 @@
 % load data
 load('EVs.mat')
 
-Ndes= 10000;        % number of EVs desired 
+Ndes= 1000000;        % number of EVs desired 
 cars= size(E0s,1); % number of cars
-count= 0%6637; %6661; % starts counting and naiming EVs from count+1
+count= 829398%0%6637; %6661; % starts counting and naiming EVs from count+1
 count2=0;       % extra counter for debugging
 notContinious=0; % count number of EVs without a continious overnight profile
 
@@ -27,8 +27,12 @@ deltaT= 15*60; % x in seconds
 
 % For each EV
 
-for i = 1:cars
+limit = 1000000;
+
+for j = 1:limit
 %% Preliminary calculations
+
+   i =  mod(j , cars) + 1;
 
    % define desired Energy 
    d=D(i,:);  % driving profile vector
@@ -168,8 +172,8 @@ if size(A,1)==1 && size(R,1)==1
            
            
     %% SAVE PARAMETERS 
-    name= ['home/' num2str(count) '.mat'] ;
-    save(name,'A','d','R','B','S_min','S_max','-v7.3');
+    name= ['home_1000000/' num2str(count) '.mat'] ;
+    save(name,'A','d','R','B','S_min','S_max','-v7');
 end
 
  if count==Ndes

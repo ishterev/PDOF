@@ -62,7 +62,7 @@ class OptProblemLoader_PriceBased(OptProblemLoader):
           
       # load optimization problem from startIdx to endIdx - 1 including
       def load(self, startIdx, endIdx):
-    
+          
           opt_probs = np.empty((endIdx,), dtype=np.object)
           
           if(CVXPY):
@@ -90,17 +90,20 @@ class OptProblemLoader_PriceBased(OptProblemLoader):
               self.dims = problem.getProblemDimensions()
         
               opt_probs[0] = problem
+              print "0 th problem is loaded"
         
               probClass.gamma = self.gamma
               for i in xrange(1, endIdx):
                     problem = probClass(i, self.V2G)
                     opt_probs[i] = problem
+                    print str(problem.idx) + " th problem is loaded"
                     # assert problem.getProblemdimensions() == self.dims # consistency check
               
           else:
               for i in xrange(endIdx):
-                    problem = probClass(startidx + i, self.V2G)
+                    problem = probClass(startIdx + i, self.V2G)
                     opt_probs[i] = problem
+                    print str(problem.idx) + " th problem is loaded"
                     # assert problem.getProblemdimensions() == self.dims # consistency check
         
           return opt_probs
@@ -113,7 +116,7 @@ class OptProblemLoader_PriceBased(OptProblemLoader):
 class OptProblemLoader_ValleyFilling(OptProblemLoader):  
     
       dims = None
-    
+          
       def __init__(self, strategy = "home", gamma = 0, delta = 1, V2G = True): 
           self.strategy = strategy 
           self.gamma = gamma 
@@ -142,6 +145,8 @@ class OptProblemLoader_ValleyFilling(OptProblemLoader):
               problem = OptProblem_Aggregator_ValleyFilling()  
               opt_probs[0] = problem
               
+              print "0 th problem is loaded"
+              
               self.dims = problem.getProblemDimensions()
         
               # Empirical [price/demand^2]     
@@ -153,12 +158,14 @@ class OptProblemLoader_ValleyFilling(OptProblemLoader):
               for i in xrange(1, endIdx):
                     problem = probClass(i, self.V2G)
                     opt_probs[i] = problem
+                    print str(problem.idx) + " th problem is loaded"
                     # assert problem.getProblemdimensions() == self.dims # consistency check
               
           else:
               for i in xrange(endIdx):
-                    problem = probClass(startidx + i, self.V2G)
+                    problem = probClass(startIdx + i, self.V2G)
                     opt_probs[i] = problem
+                    print str(problem.idx) + " th problem is loaded"
                     # assert problem.getProblemdimensions() == self.dims # consistency check
               
           return opt_probs
@@ -179,7 +186,7 @@ class OptProblemLoader_PriceBased_GeneralForm_Test(OptProblemLoader):
           
       # load optimization problem from startIdx to endIdx - 1 including
       def load(self, startIdx, endIdx):
-    
+
           opt_probs = np.empty((endIdx,), dtype=np.object)
           
           if(CVXPY):
@@ -207,17 +214,20 @@ class OptProblemLoader_PriceBased_GeneralForm_Test(OptProblemLoader):
               self.dims = problem.getProblemDimensions()
         
               opt_probs[0] = problem
+              print "0 th problem is loaded"
         
               probClass.gamma = self.gamma
               for i in xrange(1, endIdx):
                     problem = probClass(i, self.V2G)
                     opt_probs[i] = problem
+                    print str(problem.idx) + " th problem is loaded"
                     # assert problem.getProblemdimensions() == self.dims # consistency check
               
           else:
               for i in xrange(endIdx):
-                    problem = probClass(startidx + i, self.V2G)
+                    problem = probClass(startIdx + i, self.V2G)
                     opt_probs[i] = problem
+                    print str(problem.idx) + " th problem is loaded"
                     # assert problem.getProblemdimensions() == self.dims # consistency check
         
           return opt_probs
@@ -243,7 +253,7 @@ class OptProblemLoader_ValleyFilling_GeneralForm_Test(OptProblemLoader):
     
       # load optimization problem from stratIdx to endIdx - 1 including
       def load(self, startIdx, endIdx):
-    
+      
           opt_probs = np.empty((endIdx,), dtype=np.object)
           
           if(CVXPY):
@@ -262,6 +272,8 @@ class OptProblemLoader_ValleyFilling_GeneralForm_Test(OptProblemLoader):
               problem = OptProblem_Aggregator_ValleyFilling()  
               opt_probs[0] = problem
               
+              print "0 th problem is loaded"
+              
               self.dims = problem.getProblemDimensions()
         
               # Empirical [price/demand^2]     
@@ -273,12 +285,14 @@ class OptProblemLoader_ValleyFilling_GeneralForm_Test(OptProblemLoader):
               for i in xrange(1, endIdx):
                     problem = probClass(i, self.V2G)
                     opt_probs[i] = problem
+                    print str(problem.idx) + " th problem is loaded"
                     # assert problem.getProblemdimensions() == self.dims # consistency check
               
           else:
               for i in xrange(endIdx):
-                    problem = probClass(startidx + i, self.V2G)
+                    problem = probClass(startIdx + i, self.V2G)
                     opt_probs[i] = problem
+                    print str(problem.idx) + " th problem is loaded"
                     # assert problem.getProblemdimensions() == self.dims # consistency check
               
           return opt_probs

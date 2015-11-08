@@ -70,7 +70,7 @@ chargeStrategy = 'home'
 V2G = True
 gamma = 0 #trade off parameter
 
-N_EV = 0 # Number of EVs
+N_EV = 4 # Number of EVs
 ID = '0' # number of test run
 if len(sys.argv) > 1:
     N_EV = int(sys.argv[1])
@@ -120,7 +120,11 @@ if rank == 0:
 else:
         for i in xrange(n):
             # Reading in the data 
-            opt_probs = loader.load(startidx + i, n)
+            opt_probs = loader.load(startidx + i, startidx + n)
+            
+# global synchronisation: halt until all other tasks of the communicator 
+# have posted the same call
+#comm.Barrier()
 
 eps_pri = np.sqrt(N)  # Primal stopping criteria for convergence
 eps_dual = np.sqrt(N)  # Dual stopping criteria
@@ -186,38 +190,38 @@ for k in xrange(MAXITER):
         send = np.zeros(5) # reinitialize
         xsum = np.zeros((T,1)) # sum of all n xi in the process
 
-        for j in xrange(n):
+        for i in xrange(n):
             
             # ADMM iteration step (simplified for optimal exchage)
-            zi_old = zi[j]
-            zi[j] = xi[j] - x_mean            
+            zi_old = zi[i]
+            zi[i] = xi[i] - x_mean            
             
-            ui[j] = ui[j] + x_mean 
+            ui[i] = ui[i] + x_mean 
             
             # optimization for the current EV
-            problem = opt_probs[j]
-            problem.setParameters(rho, xi[j] - x_mean - ui[j])
+            problem = opt_probs[i]
+            problem.setParameters(rho, xi[i] - x_mean - ui[i])
             # optimal profile, cost
-            xi[j], ci = problem.solve()
+            xi[i], ci = problem.solve()
             
             # used for calculating convergence
-            send[0] += ddot(xi[j], xi[j])# xi[j]^2
-            send[1] += ddot(ui[j], ui[j])
-            send[2] += ddot(zi[j], zi[j])
+            send[0] += ddot(xi[i], xi[i])# xi[i]^2
+            send[1] += ddot(ui[i], ui[i])
+            send[2] += ddot(zi[i], zi[i])
             
-            zdiff = zi[j] - zi_old
+            zdiff = zi[i] - zi_old
             send[3] += ddot(zdiff, zdiff)
             
             # read in aggregator
-            if rank == 0 and j == 0:               
-                xAggr = xi[j]
+            if rank == 0 and i == 0:               
+                xAggr = xi[i]
                 costAggr = ci
             # or accumulate EV costs 
             else:
                send[4] += ci #costEVs
             
             # sum all profiles
-            xsum += xi[j]
+            xsum += xi[i]
             
             
             
@@ -295,9 +299,16 @@ for k in xrange(MAXITER):
            history['eps_pri'][k]=eps_pri
            history['eps_dual'][k]=eps_dual
            history['rho'][k]=rho
+           
+        '''
+        if (k >= 5):    
+            cost_variance = np.var(history['cost'][k-5:k])
+        else:     
+            cost_variance = 1
+        '''
        
         # stopping criteria
-        if (r_norm <= eps_pri and s_norm <= eps_dual):  
+        if (r_norm <= eps_pri and s_norm <= eps_dual): #or (cost_variance <= 1e-9): 
             if (rank == 0):
                 print "Finished ADMM at step " + str(k) + " after " + str(time.time() - tic) + " seconds" 
             break

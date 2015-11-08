@@ -62,8 +62,8 @@ class IdentificatorFunctionEquilibriumConstraint(IdentificatorFunctionConstraint
     
         # projecting onto C is simple de-meaning
 
-        N = z.shape[0]
-        n = z.shape[1]
+        N = z.shape[0] 
+        n = z.shape[2]
         
         z_ = np.zeros((n,1))       
         z_ = np.mean(z, axis = 0)

@@ -10,7 +10,8 @@ from scipy.linalg.blas import ddot
 from cvxpy import *
 
 import os
-import h5py
+import scipy.io as sio
+#import h5py
 
 from opt_problem import *
 
@@ -35,7 +36,7 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
               if(key == 'price'):
                  self.price = data['price'][()]# Base demand profile 
           
-          data.close()
+          #data.close()
           
          
           self.p=np.tile(self.price,(4,1))
@@ -114,7 +115,7 @@ class OptProblem_PriceBased_Home(OptimizationProblem_Exchange_Cvxpy):
               if(key == 'S_min'): # and self.discharge
                  self.Smin = data[key][()].T
           
-          data.close()          
+          #data.close()          
           
           self.setX(T)
           
@@ -158,7 +159,7 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
               if(key == 'price'):
                  self.price = data['price'][()].T
           
-          data.close()
+          #data.close()
           
           
       def setParameters(self, rho, K):
@@ -221,7 +222,7 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem_Exchange_Cvxpy):
               if(key == 'S_min'): # and self.discharge
                  self.Smin = data[key][()].T
           
-          data.close()          
+          #data.close()          
           
           self.setX(T)
           
@@ -260,7 +261,7 @@ def loadEV(strategy, idx):
     
     #os.chdir(file_base)
     file_name = file_base + str(idx) + '.mat' #tr(idx).encode('utf-8')
-    return h5py.File(file_name, 'r') # open read-only
+    return sio.loadmat(file_name) # h5py.File(file_name, 'r') # open read-only
     # f.close()
     
 def loadAggr():
@@ -268,7 +269,7 @@ def loadAggr():
     #file_base = '../data/Aggregator/'    
     #os.chdir(file_base)    
     file_name = DATA_DIR + '/Aggregator/aggregator.mat'
-    return h5py.File(file_name, 'r') # open read-only
+    return sio.loadmat(file_name)# h5py.File(file_name, 'r') # open read-only
     # f.close()   
         
         

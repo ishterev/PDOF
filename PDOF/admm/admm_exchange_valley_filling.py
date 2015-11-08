@@ -124,6 +124,9 @@ if (HISTORY):
     history["eps_pri"] = np.zeros((MAXITER,), dtype='float64') # primal feasability tolerance
     history["eps_dual"] = np.zeros((MAXITER,), dtype='float64') # dual feasability tolerance
     history["rho"] = np.zeros((MAXITER,), dtype='float64') # penalty parameter
+else:
+    history = {} 
+    history["cost"] = np.zeros((MAXITER,), dtype='float64') # + delta*costEVs; real cost of the EVs 
     
     
 # the x, u and z chunks for this process    
@@ -157,7 +160,7 @@ for k in xrange(MAXITER):
             
             # optimization for the current EV
             problem = opt_probs[i]
-            problem.setParameters(rho, x[i] - x_mean - u[i])
+            problem.setParameters(rho, x[i] - x_mean - u[i]) 
             # optimal profile, cost
             x[i], ci = problem.solve()   
             
@@ -251,11 +254,20 @@ for k in xrange(MAXITER):
            history['eps_pri'][k]=eps_pri
            history['eps_dual'][k]=eps_dual
            history['rho'][k]=rho
+         
+        '''
+        if (k >= 5):    
+            cost_variance = np.var(history['cost'][k-5:k])
+        else:     
+            cost_variance = 1
+        '''
        
         # stopping criteria
-        if (r_norm <= eps_pri and s_norm <= eps_dual):
+        if (r_norm <= eps_pri and s_norm <= eps_dual): #or (cost_variance <= 1e-9):
             print "Finished ADMM at step " + str(k) + " after " + str(time.time() - tic) + " seconds" 
             break
+        
+        #//TODO variance
 
         # update rho 
         # According to Boyd et. al

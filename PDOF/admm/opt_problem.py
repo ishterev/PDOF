@@ -8,6 +8,10 @@ Created on Fri Sep 11 16:03:36 2015
 import numpy as np
 from cvxpy import *
 from gurobipy import *
+from decimal import *
+
+_cfunc_decimal = np.vectorize(Decimal)
+_cfunc_float64 = np.vectorize(np.float64)
 
 
 # A common interface for a single ADMM optimization problem
@@ -21,6 +25,29 @@ class OptimizationProblem:
     
     def getProblemDimensions(self):
         pass
+    
+    def exact_mult(self, a, b):
+        return np.float64(Decimal(a) * Decimal(b))
+        
+    def exact_dot(self, a, b):               
+        a1 = self.float2decimal(a)
+        b1 = self.float2decimal(b)
+        c = np.dot(a1,b1)       
+        c = self.decimal2float(c)        
+        return c
+        
+    def float2decimal(self, a):
+        a1 = _cfunc_decimal(a.flatten())# a.ravel()
+        a1 = a1.reshape(a.shape)
+        return a1
+        
+    def decimal2float(self, a):        
+        # decimal array is only temporary, override it
+        a_shape = a.shape                
+        a = a.ravel()
+        a = _cfunc_float64(a)
+        a = a.reshape(a_shape) 
+        return a
     
 # A single ADMM optimization problem in its general form:
 # Minimize f(x) + g(x)
@@ -361,6 +388,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     
     # s.t. Ax + Bz = c
     A = None
+    A_T = None # A.T
     B = None
     c = None
     
@@ -386,6 +414,12 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     m = 0
     n = 0
     p = 0
+    
+    # cached results
+    
+    A_xk = None # A * xk
+    B_zk = None # B * zk
+    A_T_B = None # self.A.T, self.B
     
     
     def setX(self, shape): 
@@ -765,7 +799,11 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
            
         # problem matrices
         self.A = A
+        self.A_T = A.transpose().copy()
+        
         self.B = B
+        self.A_T_B = self.exact_dot(self.A_T, B)
+        
         self.c = c 
         
         # problem dimension
@@ -910,7 +948,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
             if(B is not None):        
                for j in xrange(m):
                    if B[i][j] != 0:
-                      p_expr += B[i][j] * zk[j]
+                      p_expr +=  self.exact_mult(B[i][j], zk[j][0])#B[i][j] * zk[j]
                       
             if(c is not None):
                p_expr -= c[i]                
@@ -1086,7 +1124,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
             if(A is not None):                         
                for j in xrange(n):
                    if A[i][j] != 0:
-                      p_expr += A[i][j] * xk[j]
+                      p_expr += self.exact_mult(A[i][j], xk[j][0])# A[i][j] * xk[j]
                       
             if(B is not None):        
                for j in xrange(m):
@@ -1182,10 +1220,12 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
             self.uk = uk
             
         if(self.A is not None):
-            self.uk += np.dot(self.A, self.xk)
+            self.A_xk = self.exact_dot(self.A, self.xk)
+            self.uk += self.A_xk #np.dot(self.A, self.xk)
         
         if(self.B is not None):
-            self.uk += np.dot(self.B, self.zk)
+            self.B_zk = self.exact_dot(self.B, self.zk)
+            self.uk += self.B_zk  #np.dot(self.B, self.zk)
             
         if(self.c is not None):
             self.uk -= self.c
@@ -1202,10 +1242,10 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
         
         rk = 0
         if(self.A is not None):
-            rk += np.dot(self.A, self.xk)
+            rk += self.A_xk #np.dot(self.A, self.xk)
         
         if(self.B is not None):
-            rk += np.dot(self.B, self.zk)
+            rk += self.B_zk #np.dot(self.B, self.zk)
             
         if(self.c is not None):
             rk -= self.c
@@ -1225,9 +1265,8 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
            self.zk_old = zk_old
            
         # rho * A.T * B * (zi-zi_old) 
-        tmp = np.dot(self.A.T, self.B) 
         sk = self.zk - self.zk_old        
-        sk = np.dot(tmp, sk)
+        sk = self.exact_dot(self.A_T_B, sk)#np.dot(tmp, sk)
         #sk *= self.rho # multiplied afterward in the ADMM algorithm
         
         return sk
@@ -1236,10 +1275,10 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     def getPrimalFeasability(self):
         a = 0
         if(self.A is not None):
-            a = np.dot(self.A, self.xk)
+            a = self.A_xk #self.exact_dot(self.A, self.xk) #np.dot(self.A, self.xk)
         b = 0   
         if(self.B is not None):
-            b = np.dot(self.B, self.zk)
+            b = self.B_zk #self.exact_dot(self.B, self.zk) #np.dot(self.B, self.zk)
         c = 0   
         if(self.c is not None):
            c = self.c
@@ -1250,7 +1289,7 @@ class OptimizationProblem_Gurobi(OptimizationProblem):
     def getDualFeasability(self):
         a=0
         if(self.A is not None):
-            a = np.dot(self.A.T, self.uk)
+            a = self.exact_dot(self.A_T, self.uk)#np.dot(self.A.T, self.uk)
                
         return a
         

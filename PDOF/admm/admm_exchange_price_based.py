@@ -121,6 +121,9 @@ if (HISTORY):
     history["eps_pri"] = np.zeros((MAXITER,), dtype='float64') # primal feasability tolerance
     history["eps_dual"] = np.zeros((MAXITER,), dtype='float64') # dual feasability tolerance
     history["rho"] = np.zeros((MAXITER,), dtype='float64') # penalty parameter
+else:
+    history = {} 
+    history["cost"] = np.zeros((MAXITER,), dtype='float64') # + delta*costEVs; real cost of the EVs 
     
     
 # the x, u and z chunks for this process    
@@ -255,9 +258,9 @@ for k in xrange(MAXITER):
            
            
         if (k >= 5):    
-          cost_variance = np.var(history['cost'][k-5:k])
+            cost_variance = np.var(history['cost'][k-5:k])
         else:     
-          cost_variance = 1
+            cost_variance = 1
           
           
         #if (cost_variance <= 1e-9):

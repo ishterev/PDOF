@@ -10,7 +10,8 @@ from scipy.linalg.blas import ddot
 from cvxpy import *
 
 import os
-import h5py
+import scipy.io as sio
+#import h5py
 
 from opt_problem import *
 
@@ -18,6 +19,11 @@ DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))
 
 deltaT = 900 #=15*60  Time slot duration [sec]
 T = 96 #= 24*3600/deltaT # Number of time slots
+
+try:
+    inf = float('inf')
+except:  # check for a particular exception here?
+    inf = 1e30000
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -40,7 +46,7 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem_Cvxpy):
               if(key == 'price'):
                  self.price = data['price'][()]# Base demand profile 
           
-          data.close()
+          #data.close()
           
          
           self.p=np.tile(self.price,(4,1))
@@ -57,23 +63,28 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem_Cvxpy):
           # x - z = 0
           self.addMainConstraint(np.identity(T), -np.identity(T), 0)
           
-          # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
-          self.setObjectiveZ(0, 'min')
+          # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)          
+          # g = abs(sum_entries(self.getZ())) * inf
+          g = 0
+          self.setObjectiveZ(g, 'min')
           self.addConstraintZ(sum_entries(self.getZ()) == 0)
          
           self.setModel()
           
           
       def setParametersObjX(self, rho, zk, uk):                  
-          self.rho = rho         #augement cost parameter
-          self.zk = zk
-          self.uk = uk
+          if(rho is not None):
+             self.rho.value = rho #self.rho.value
+          if(self.zk is not None):
+             self.zk.value = zk #self.zk.value
+          if(self.uk is not None):
+             self.uk.value = uk #self.uk.value
           self.K = zk - uk # xold - xmean - u  Normalization parameter
           
           
       def solveX(self):
           
-          x= self.K + self.p/self.rho          
+          x= (self.K + self.p/self.rho).value          
  
           # box constraints
           indx = np.where(x<-self.re)
@@ -133,7 +144,7 @@ class OptProblem_PriceBased_Home(OptimizationProblem_Cvxpy):
               if(key == 'S_min'): # and self.discharge
                  self.Smin_in = data[key][()].T
           
-          data.close()          
+          #data.close()          
           
           self.setX(T)
           self.setZ(T)
@@ -156,8 +167,9 @@ class OptProblem_PriceBased_Home(OptimizationProblem_Cvxpy):
           self.setObjectiveX(f, 'min')
           
           # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
-          self.setObjectiveZ(0, 'min')
-          self.addConstraintZ(sum_entries(self.z) == 0)
+          g = 0
+          self.setObjectiveZ(g, 'min')
+          self.addConstraintZ(sum_entries(self.getZ()) == 0)
          
           self.setModel()
          
@@ -189,7 +201,7 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem_Cvxpy):
               if(key == 'price'):
                  self.price = data['price'][()].T
           
-          data.close()
+          #data.close()
           
           self.setX(T)
           self.setZ(T)
@@ -198,25 +210,29 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem_Cvxpy):
           self.addMainConstraint(np.identity(T), -np.identity(T), 0)
           
           # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
-          self.setObjectiveZ(0, 'min')
+          g = 0
+          self.setObjectiveZ(g, 'min')
           self.addConstraintZ(sum_entries(self.getZ()) == 0)
          
           self.setModel()
           
           
       def setParametersObjX(self, rho, zk, uk):                  
-          self.rho = rho         #augement cost parameter
-          self.zk = zk
-          self.uk = uk
+          if(rho is not None):
+             self.rho.value = rho #self.rho.value
+          if(self.zk is not None):
+             self.zk.value = zk #self.zk.value
+          if(self.uk is not None):
+             self.uk.value = uk #self.uk.value
           self.K = zk - uk # xold - xmean - u  Normalization parameter
           
           
       def solveX(self):
           
-          if(self.rho == 2):
-              self.rho += 1e-9
+          if(self.rho.value == 2):
+              self.rho.value += 1e-9
           
-          x = self.rho/(self.rho-2)* self.K - 2/(self.rho-2) * self.D
+          x = (self.rho/(self.rho-2)* self.K - 2/(self.rho-2) * self.D).value
                      
           self.x.value = x
           self.xk = x
@@ -270,7 +286,7 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem_Cvxpy):
               if(key == 'S_min'): # and self.discharge
                  self.Smin_in = data[key][()].T
           
-          data.close()          
+          #data.close()          
           
           self.setX(T)
           self.setZ(T)
@@ -283,8 +299,6 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem_Cvxpy):
           # Aeq * x = beq 
           self.addConstraintX(self.A_in * self.x == self.R_in)
           
-          
-          
            # Smin <= B * x <= Smax
           if self.discharge:  # yes V2G           
              self.addConstraintX(self.Smin_in - 1e-4 <= self.B_in * self.x)
@@ -295,21 +309,22 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem_Cvxpy):
           self.setObjectiveX(f, 'min')
           
           # g(z) - indicator function of the set {0} => Sum (zi) = 0 (<=>  Sum (xi) = 0)
-          self.setObjectiveZ(0, 'min')
-          self.addConstraintZ(sum_entries(self.z) == 0)
+          g = 0
+          self.setObjectiveZ(g, 'min')
+          self.addConstraintZ(sum_entries(self.getZ()) == 0)
          
           self.setModel()  
          
                       
       def solveX(self):
 
-        xRslt, costRslt = self.optimizeX()
-        costRslt=self.gamma*self.delta*self.alpha*ddot(xRslt, xRslt) #self.problem.value    
+        x, c = self.optimizeX()
+        c=self.gamma*self.delta*self.alpha*ddot(x, x) #self.problem.value    
                            
         #self.x.value = xRslt
         #self.xk = xRslt
         
-        return (xRslt, costRslt) 
+        return (x, c) 
           
           
                 
@@ -322,7 +337,7 @@ def loadEV(strategy, idx):
     
     #os.chdir(file_base)
     file_name = file_base + str(idx) + '.mat' #tr(idx).encode('utf-8')
-    return h5py.File(file_name, 'r') # open read-only
+    return sio.loadmat(file_name)# h5py.File(file_name, 'r') # open read-only
     # f.close()
     
 def loadAggr():
@@ -330,7 +345,7 @@ def loadAggr():
     #file_base = '../data/Aggregator/'    
     #os.chdir(file_base)    
     file_name = DATA_DIR + '/Aggregator/aggregator.mat'
-    return h5py.File(file_name, 'r') # open read-only
+    return sio.loadmat(file_name) # h5py.File(file_name, 'r') # open read-only
     # f.close()   
         
         
@@ -338,6 +353,7 @@ if __name__ == "__main__":
     
    #reload(sys)  
    #sys.setdefaultencoding('utf8')
+    
    
    aggr = loadAggr()
    #D,price = np.empty
@@ -356,6 +372,7 @@ if __name__ == "__main__":
    
    a.setParameters(0.5, np.zeros((96, 1)), np.zeros((96, 1)))
    x, c = a.solveX()
+   a.setParametersObjZ(0.5, x, np.ones((96, 1)))
    z = a.solveZ()
    
    #print x
@@ -371,12 +388,11 @@ if __name__ == "__main__":
    OptProblem_ValleyFilling_Home.alpha /= OptProblem_ValleyFilling_Home.delta
    
    op = OptProblem_ValleyFilling_Home(1, True)   
-   op.setParameters(0.5, np.zeros((96, 1)), np.zeros((96, 1)))
+   op.setParametersObjX(0.5, np.zeros((96, 1)), np.zeros((96, 1)))
    x, c = op.solveX()
-   z = op.solveZ()
+   op.setParametersObjZ(0.5, x, np.zeros((96, 1)))
+   z = op.solveZ() 
    
    print x
    print z
-   
-   
    

@@ -8,7 +8,8 @@ import numpy as np
 from scipy.linalg.blas import ddot
 from gurobipy import *
 
-import h5py
+import scipy.io as sio
+#import h5py
 
 from opt_problem import *
 
@@ -31,9 +32,9 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem):
           for key,val in data.items() :
           
               if(key == 'price'):
-                 self.price = data['price'][()]# Base demand profile 
+                 self.price = data['price'][()].T# Base demand profile 
           
-          data.close()
+          #data.close()
           
          
           self.p=np.tile(self.price,(4,1))
@@ -97,29 +98,29 @@ class OptProblem_PriceBased_Home(OptimizationProblem_Exchange_Gurobi):
           for key,val in data.items() :
        
               if(key == 'A'):       
-                 self.A = data[key][()].T
+                 self.A = data[key][()]
                  #A = self.A # for debug
           
               if(key == 'R'):
                  self.R = data[key][()]
                  
               if(key == 'd'):
-                 self.d = data[key][()]
+                 self.d = data[key][()].T
                  #d = self.d
                  
               if(key == 'B'): # and self.discharge
-                 self.B = data[key][()].T 
+                 self.B = data[key][()]
                  #B = self.B
                  
               if(key == 'S_max'): # and self.discharge
-                 self.Smax = data[key][()].T
+                 self.Smax = data[key][()]
                  #Smax = self.Smax
                  
               if(key == 'S_min'): # and self.discharge
-                 self.Smin = data[key][()].T
+                 self.Smin = data[key][()]
                 # Smin = self.Smin
           
-          data.close()
+          #data.close()
 
           self.setModel()
           self.setX((T))
@@ -164,12 +165,12 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem):
           for key,val in data.items() :
                
               if(key == 'D'):       
-                 self.D = data[key][()].T
+                 self.D = data[key][()]
           
               if(key == 'price'):
                  self.price = data['price'][()].T
           
-          data.close()
+          #data.close()
           
           
       def setParameters(self, rho, K):
@@ -217,27 +218,27 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem_Exchange_Gurobi):
           for key,val in data.items() :
        
               if(key == 'A'):       
-                 self.A = data[key][()].T
+                 self.A = data[key][()]
                  #A = self.A # for debug
           
               if(key == 'R'):
                  self.R = data[key][()]
                  
               if(key == 'd'):
-                 self.d = data[key][()]
+                 self.d = data[key][()].T
                  #d = self.d
                  
               if(key == 'B'): # and self.discharge
-                 self.B = data[key][()].T 
+                 self.B = data[key][()]
                  #B = self.B
                  
               if(key == 'S_max'): # and self.discharge
-                 self.Smax = data[key][()].T
+                 self.Smax = data[key][()]
                  #Smax = self.Smax
                  
               if(key == 'S_min'): # and self.discharge
-                 self.Smin = data[key][()].T
-                # Smin = self.Smin
+                 self.Smin = data[key][()]
+                 #Smin = self.Smin
           
           self.setModel()
           self.setX((T))
@@ -279,7 +280,7 @@ def loadEV(strategy, idx):
     
     #os.chdir(file_base)
     file_name = file_base + str(idx) + '.mat' #tr(idx).encode('utf-8')
-    return h5py.File(file_name, 'r') # open read-only
+    return sio.loadmat(file_name)#h5py.File(file_name, 'r') # open read-only
     # f.close()
     
 def loadAggr():
@@ -287,7 +288,7 @@ def loadAggr():
     #file_base = '../data/Aggregator/'    
     #os.chdir(file_base)    
     file_name = DATA_DIR + '/Aggregator/aggregator.mat'
-    return h5py.File(file_name, 'r') # open read-only
+    return sio.loadmat(file_name)#h5py.File(file_name, 'r') # open read-only
     # f.close()   
         
         
@@ -296,7 +297,7 @@ if __name__ == "__main__":
    #reload(sys)  
    #sys.setdefaultencoding('utf8')
    
-   a = OptProblem_Aggregator_PriceBased()
+   a = OptProblem_Aggregator_ValleyFilling()
    
    price= a.price # Base demand profile 
    p=np.tile(price,(4,1))
@@ -317,7 +318,7 @@ if __name__ == "__main__":
  
    #delta=  np.mean(a.price)/(np.mean(a.D) * (3600*1000)  *15*60 )       # Empirical [price/demand^2]
    
-   op = OptProblem_PriceBased_Home(1, True)
+   op = OptProblem_ValleyFilling_Home(1, True)
    
    #OptProblem_ValleyFilling_Home.delta = delta
    OptProblem_PriceBased_Home.gamma = 0

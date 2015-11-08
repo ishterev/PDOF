@@ -1,4 +1,8 @@
 load('aggregator.mat')
 
-name= ['aggregator1.mat'] ;
-save(name,'D','price','re','-v7.3');
+%D = data.D
+%D = 10 * D
+
+
+name= ['aggregator.mat'] ;
+save(name,'D','price','re','-v7');

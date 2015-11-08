@@ -8,7 +8,8 @@ import numpy as np
 from scipy.linalg.blas import ddot
 from gurobipy import *
 
-import h5py
+import scipy.io as sio
+#import h5py
 
 from opt_problem import *
 
@@ -32,9 +33,9 @@ class OptProblem_Aggregator_PriceBased(OptimizationProblem_Gurobi):
           for key,val in data.items() :
           
               if(key == 'price'):
-                 self.price = data['price'][()]# Base demand profile 
+                 self.price = data['price'][()].T# Base demand profile 
           
-          data.close()
+          #data.close()
           
          
           self.p=np.tile(self.price,(4,1))
@@ -111,24 +112,24 @@ class OptProblem_PriceBased_Home(OptimizationProblem_Gurobi):
           for key,val in data.items() :
        
               if(key == 'A'):       
-                 self.A_in = data[key][()].T 
+                 self.A_in = data[key][()]
           
               if(key == 'R'):
                  self.R_in = data[key][()][0][0]
                  
               if(key == 'd'):
-                 self.d_in = data[key][()] 
+                 self.d_in = data[key][()].T 
                  
               if(key == 'B'): # and self.discharge
-                 self.B_in = data[key][()].T   
+                 self.B_in = data[key][()] 
                  
               if(key == 'S_max'): # and self.discharge
-                 self.Smax_in = data[key][()].T
+                 self.Smax_in = data[key][()]
                  
               if(key == 'S_min'): # and self.discharge
-                 self.Smin_in = data[key][()].T
+                 self.Smin_in = data[key][()]
           
-          data.close()          
+          #data.close()          
           
           self.setModel()
           
@@ -191,12 +192,12 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem_Gurobi):
           for key,val in data.items() :
                
               if(key == 'D'):       
-                 self.D = data[key][()].T
+                 self.D = data[key][()]
           
               if(key == 'price'):
                  self.price = data['price'][()].T
           
-          data.close()
+          #data.close()
           
           self.setModel()
           
@@ -216,7 +217,7 @@ class OptProblem_Aggregator_ValleyFilling(OptimizationProblem_Gurobi):
           self.rho = rho         #augement cost parameter
           self.zk = zk
           self.uk = uk
-          self.K = zk - uk # xold - xmean - u  Normalization parameter
+          self.K = zk - uk # xold - xmean + u  Normalization parameter
           
           
       def solveX(self):
@@ -261,24 +262,24 @@ class OptProblem_ValleyFilling_Home(OptimizationProblem_Gurobi):
           for key,val in data.items() :
        
               if(key == 'A'):       
-                 self.A_in = data[key][()].T 
+                 self.A_in = data[key][()] 
           
               if(key == 'R'):
                  self.R_in = data[key][()][0][0]
                  
               if(key == 'd'):
-                 self.d_in = data[key][()] 
+                 self.d_in = data[key][()].T 
                  
               if(key == 'B'): # and self.discharge
-                 self.B_in = data[key][()].T   
+                 self.B_in = data[key][()] 
                  
               if(key == 'S_max'): # and self.discharge
-                 self.Smax_in = data[key][()].T
+                 self.Smax_in = data[key][()]
                  
               if(key == 'S_min'): # and self.discharge
-                 self.Smin_in = data[key][()].T
+                 self.Smin_in = data[key][()]
           
-          data.close()  
+          #data.close()  
           
           self.setModel()  
           
@@ -341,7 +342,7 @@ def loadEV(strategy, idx):
     
     #os.chdir(file_base)
     file_name = file_base + str(idx) + '.mat' #tr(idx).encode('utf-8')
-    return h5py.File(file_name, 'r') # open read-only
+    return sio.loadmat(file_name)#h5py.File(file_name, 'r') # open read-only
     # f.close()
     
 def loadAggr():
@@ -349,7 +350,7 @@ def loadAggr():
     #file_base = '../data/Aggregator/'    
     #os.chdir(file_base)    
     file_name = DATA_DIR + '/Aggregator/aggregator.mat'
-    return h5py.File(file_name, 'r') # open read-only
+    return sio.loadmat(file_name) #h5py.File(file_name, 'r') # open read-only
     # f.close()   
         
         
@@ -357,8 +358,6 @@ if __name__ == "__main__":
     
    #reload(sys)  
    #sys.setdefaultencoding('utf8')
-    
-   '''
    
    aggr = loadAggr()
    #D,price = np.empty
@@ -399,86 +398,3 @@ if __name__ == "__main__":
    
    print x
    #print z
-   
-   '''
-   
-   model = Model() 
-   model.params.OutputFlag = 0 # verbose = 1            
-   model.modelSense = GRB.MINIMIZE
-      
-   # Add variables to model
-   for i in xrange(96):# n <=> (n,1)
-        model.addVar(lb = -GRB.INFINITY) # N.B.!!! otherwise lb is set on default to 0
-   model.update()
-   x = model.getVars()     
-        
-   # auxiliary parameters for the k+1 th z step
-   uk = 0.5 * np.ones((96, 1))
-   zk = 0.3 * np.ones((96, 1))
-   #self.uk = 0   
-
-   for i in xrange(96):
-                                         
-       model.addConstr(x[i],  '<', 0.1) 
-       model.addConstr(x[i],  '>', -0.1)         
-                       
-   fexpr = LinExpr() 
-   # The default value for the target function. A constant is good e.g. to represent 
-   # the indicator function (with the appropriate constraint sum(xi) == 0) etc.
-   fexpr += 0
-   
-   A = np.identity(96)
-   B = -np.identity(96)
-   c = np.zeros((96,1))
-   
-   rho = 0.5
-   
-   obj = QuadExpr()    
-   for i in xrange(96):
-            
-       # A * x + B * zk - c + uk 
-       p_expr = LinExpr() 
-       if(A is not None):                         
-          for j in xrange(96):
-              if A[i][j] != 0:
-                 p_expr += A[i][j] * x[j]
-                      
-       if(B is not None):        
-          for j in xrange(96):
-              if B[i][j] != 0:
-                 p_expr += B[i][j] * zk[j]
-                      
-       if(c is not None):
-          p_expr -= c[i]                
-            
-       p_expr += uk[i]
-            
-       # 2nd norm 
-       obj += (p_expr) * (p_expr)            
-            
-   #obj *= rho
-   # rho * 1/2 * obj (two times *) is syntactically correct but not semantically 
-   # and delivers wrong results
-   #obj *= 0.5 
-   obj +=  fexpr     # 1/2 * (obj)    
-        
-   model.setObjective(obj)
-   model.update()
-       
-   model.optimize()         
-   xRslt = np.zeros((96, 1)) 
-   if model.status == GRB.status.OPTIMAL:
-      for i in xrange(96):
-          xRslt[i][0] = x[i].x
-              
-   print xRslt
-                          
-       
-   
-   
-   
-   
-   
-   
-   
-   

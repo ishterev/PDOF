@@ -6,9 +6,9 @@ Created on Fri May 01 20:01:32 2015
 ###################################################################################################
 # To run execute the follwoing command. The console should point to this file's working directory
 #
-# mpiexec -n 4 python admm_exchange_price_based_mpi.py 100
+# mpiexec -n 4 python admm_mpi.py 100
 #
-# where 100 is an example for the number of EVs
+# where 100 is an example for the number of (EVs + Aggregator)
 ###################################################################################################
 """
 
@@ -51,7 +51,7 @@ VmPeakStart = psutil.virtual_memory()[3] # memory in use up until now
 # The direcory containg all EV data and a place for results etc.
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))
 
-MAXITER  = 50# int(1e3);#int(1e4);   # Maximal amount of iterations
+MAXITER  = int(1e3);#int(1e4);   # Maximal amount of iterations
 ABSTOL   = 1e-4# absolute and relative tolernce
 RELTOL   = 1e-2# 1e-2;1e-3;1e-4;
 
@@ -65,7 +65,7 @@ rank = comm.Get_rank() # rank of the(this) calling process in the communicator
 size = comm.Get_size() # number of processes in the communicator
 
 problem_type = "test_valley_filling"
-N = 4 # Number of optimization problems
+N = 5 # Number of optimization problems
 ID = '0' # number of test run
 if len(sys.argv) > 1:
     N = int(sys.argv[1])
@@ -164,26 +164,26 @@ for k in xrange(MAXITER):
 
         send = np.zeros(7) # reinitialize
 
-        for j in xrange(cs):
+        for i in xrange(cs):
             
-            problem = opt_probs[j]
+            problem = opt_probs[i]
             
             # xk+1 = argmin x   f(x) + (ρ/2)Ax + Bzk − c + uk2
-            problem.setParametersObjX(rho, zi[j], ui[j])             
-            xi[j], cost = problem.solveX()
+            problem.setParametersObjX(rho, zi[i], ui[i])             
+            xi[i], cost = problem.solveX()
             
             # zk+1 = argmin z   g(z) + (ρ/2)Axk+1 + Bz − c + uk2
-            problem.setParametersObjZ(rho, xi[j], ui[j])
-            zi_old = zi[j]
-            zi[j] = problem.solveZ()
+            problem.setParametersObjZ(rho, xi[i], ui[i])
+            zi_old = np.copy(zi[i])
+            zi[i] = problem.solveZ()
             
             # uk+1 = uk + Axk+1 + Bzk+1 − c
-            ui[j] = problem.solveU(xi[j], zi[j], ui[j])
+            ui[i] = problem.solveU(xi[i], zi[i], ui[i])
             
             # Axi + Bzi - c
-            ri = problem.getPrimalResidual(xi[j],zi[j])
+            ri = problem.getPrimalResidual(xi[i],zi[i])
             # rho * A.T * B * (zi-zi_old)
-            si = problem.getDualResidual(zi[j], zi_old)
+            si = problem.getDualResidual(zi[i], zi_old)
 
             # (Axi, Bzi, c)
             eps_pri = problem.getPrimalFeasability()
