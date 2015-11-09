@@ -116,7 +116,11 @@ if rank == 0:
               
 else:
        # Reading in the data   
-       opt_probs = loader.load(startidx, n)
+       opt_probs = loader.load(startidx, startidx + n)
+       
+# global synchronisation: halt until all other tasks of the communicator 
+# have posted the same call
+comm.Barrier()
                  
 
 eps_pri = np.sqrt(N)  # Primal stopping criteria for convergence

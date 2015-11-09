@@ -106,7 +106,6 @@ opt_probs = np.empty((n,), dtype=np.object)
 if(rank == 0 and DISP):
            print 'Reading in data ...' 
            
-
 # Reading in the data
 loader = OptProblemLoaderFactory._get("valley_filling", chargeStrategy, gamma, V2G)
 if rank == 0:
@@ -117,14 +116,14 @@ if rank == 0:
         prob_aggr = opt_probs[0] 
         D = prob_aggr.D     
               
-else:
-        for i in xrange(n):
-            # Reading in the data 
-            opt_probs = loader.load(startidx + i, startidx + n)
-            
+else:       
+        # Reading in the data 
+        opt_probs = loader.load(startidx, startidx + n)
+    
 # global synchronisation: halt until all other tasks of the communicator 
 # have posted the same call
-#comm.Barrier()
+comm.Barrier()
+            
 
 eps_pri = np.sqrt(N)  # Primal stopping criteria for convergence
 eps_dual = np.sqrt(N)  # Dual stopping criteria

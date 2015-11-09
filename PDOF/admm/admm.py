@@ -42,7 +42,7 @@ VmPeakStart = psutil.virtual_memory()[3] # memory in use up until now
 # The direcory containg all EV data and a place for results etc.
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))
 
-MAXITER  = 300 #int(1e3);#int(1e4);   # Maximal amount of iterations
+MAXITER  = int(1e3);#int(1e4);   # Maximal amount of iterations
 ABSTOL   = 1e-4# absolute and relative tolernce
 RELTOL   = 1e-2# 1e-2;1e-3;1e-4;
 

@@ -105,7 +105,11 @@ if rank == 0:
               
 else:
        # Reading in the data   
-       opt_probs = loader.load(startidx, cs)
+       opt_probs = loader.load(startidx, startidx + cs)
+       
+# global synchronisation: halt until all other tasks of the communicator 
+# have posted the same call
+comm.Barrier()
        
 n,m,p = loader.getProblemDimensions()  # x ∈ Rn and z ∈ Rm, where A ∈ Rp×n, B ∈ Rp×m, and c ∈ Rp   
                  
